@@ -1,0 +1,17 @@
+services:
+  itinerary:
+    build: .
+    container_name: itinerary-planner
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Public URL the app is reached at (needed for form submissions behind a proxy)
+      ORIGIN: ${ORIGIN:-http://localhost:3000}
+      APP_PASSWORD: ${APP_PASSWORD:?set APP_PASSWORD in .env}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      VAULT_PATH: /vault
+    volumes:
+      - ./data:/app/data
+      # Obsidian vault (folder containing Travel/ and _attachments/)
+      - ${VAULT_HOST_PATH:-./vault}:/vault
