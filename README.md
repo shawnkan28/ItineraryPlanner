@@ -4,7 +4,15 @@ Plan a trip in three phases (route → ideas → final itinerary), track booking
 journal on the phone during the trip, and export hand-written-looking notes to the Obsidian vault.
 See [specs.md](specs.md) for the full spec.
 
-SvelteKit 2 + Svelte 5, SQLite (`better-sqlite3` + Drizzle), `adapter-node`.
+SvelteKit 3 + Svelte 5, SQLite (`better-sqlite3` + Drizzle), `adapter-node`.
+
+The spec says SvelteKit 2, but every Kit 2 release has open security advisories (fixed only in Kit 3),
+so the app runs on Kit 3. Things that differ from older Kit projects:
+
+- SvelteKit config lives in `vite.config.ts` (`sveltekit({ adapter })`); there is no `svelte.config.js`.
+- `src/lib` is imported as `#lib/...` with the file extension (`#lib/server/db/index.ts`), via the `imports` field in `package.json`.
+- Environment variables are declared in [src/env.ts](src/env.ts) and imported from `$app/env/private`.
+- `package.json` has an `overrides` entry pinning a patched `esbuild` inside `drizzle-kit`'s deprecated `@esbuild-kit` loader (dev-only). Remove it once drizzle-kit 1.0 is stable.
 
 ## Run locally
 

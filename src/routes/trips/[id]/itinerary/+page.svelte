@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { addDays, ddMonRange, dddDd } from '$lib/dates';
-	import { keep } from '$lib/forms';
-	import PlaceInput from '$lib/components/PlaceInput.svelte';
-	import LinkField from '$lib/components/LinkField.svelte';
+	import { addDays, ddMonRange, dddDd } from '#lib/dates.ts';
+	import { keep } from '#lib/forms.ts';
+	import PlaceInput from '#lib/components/PlaceInput.svelte';
+	import LinkField from '#lib/components/LinkField.svelte';
 
 	let { data } = $props();
 	const base = $derived(`/trips/${data.trip.id}`);

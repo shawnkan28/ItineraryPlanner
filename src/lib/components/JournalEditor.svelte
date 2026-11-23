@@ -5,7 +5,7 @@
 	 * browser comes back online, or the next time the page opens.
 	 */
 	import { onMount } from 'svelte';
-	import type { JournalEntry } from '$lib/server/db/schema';
+	import type { JournalEntry } from '#lib/server/db/schema.ts';
 
 	type Fields = {
 		quickSummary: string;

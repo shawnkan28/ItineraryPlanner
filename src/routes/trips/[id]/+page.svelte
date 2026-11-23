@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { bookingBadges } from '$lib/bookings';
-	import { keep } from '$lib/forms';
-	import { formatMoney } from '$lib/money';
+	import { bookingBadges } from '#lib/bookings.ts';
+	import { keep } from '#lib/forms.ts';
+	import { formatMoney } from '#lib/money.ts';
 
 	let { data, form } = $props();
 	const trip = $derived(data.trip);

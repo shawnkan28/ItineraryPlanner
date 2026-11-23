@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import type { Place, PlaceLevel } from '$lib/server/db/schema';
+	import type { Place, PlaceLevel } from '#lib/server/db/schema.ts';
 
 	let { data, form } = $props();
 	let q = $state('');

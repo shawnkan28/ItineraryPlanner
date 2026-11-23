@@ -1,8 +1,8 @@
 import { fail } from '@sveltejs/kit';
 import { and, eq, ne, sql } from 'drizzle-orm';
-import { db, t } from '$lib/server/db';
-import { allPlaces, findPlace } from '$lib/server/repo';
-import { parseForm, placeSchema } from '$lib/schemas';
+import { db, t } from '#lib/server/db/index.ts';
+import { allPlaces, findPlace } from '#lib/server/repo.ts';
+import { parseForm, placeSchema } from '#lib/schemas.ts';
 
 export const load = () => {
 	const usage = db

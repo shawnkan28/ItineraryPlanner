@@ -1,9 +1,9 @@
 import { fail } from '@sveltejs/kit';
 import { and, asc, eq } from 'drizzle-orm';
-import { toMinor } from '$lib/money';
-import { db, t } from '$lib/server/db';
-import { getTrip, resolvePlace, tripId } from '$lib/server/repo';
-import { parseForm, staySchema } from '$lib/schemas';
+import { toMinor } from '#lib/money.ts';
+import { db, t } from '#lib/server/db/index.ts';
+import { getTrip, resolvePlace, tripId } from '#lib/server/repo.ts';
+import { parseForm, staySchema } from '#lib/schemas.ts';
 
 export const load = ({ params }) => ({
 	stays: db.select().from(t.stay).where(eq(t.stay.tripId, tripId(params))).orderBy(asc(t.stay.checkIn), asc(t.stay.id)).all()

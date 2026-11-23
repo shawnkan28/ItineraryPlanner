@@ -2,12 +2,12 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { BOOKING_STATUSES, CATEGORIES, bookingBadges, isDue } from '$lib/bookings';
-	import { niceDate } from '$lib/dates';
-	import { keep } from '$lib/forms';
-	import { formatMoney, fromMinor, sumByCurrency } from '$lib/money';
-	import StatusBadge from '$lib/components/StatusBadge.svelte';
-	import type { Booking } from '$lib/server/db/schema';
+	import { BOOKING_STATUSES, CATEGORIES, bookingBadges, isDue } from '#lib/bookings.ts';
+	import { niceDate } from '#lib/dates.ts';
+	import { keep } from '#lib/forms.ts';
+	import { formatMoney, fromMinor, sumByCurrency } from '#lib/money.ts';
+	import StatusBadge from '#lib/components/StatusBadge.svelte';
+	import type { Booking } from '#lib/server/db/schema.ts';
 
 	let { data, form } = $props();
 	const q = $derived(page.url.searchParams);
@@ -19,11 +19,11 @@
 	let open: number | null = $state(null);
 
 	function setFilter(key: string, value: string) {
-		const u = new URL(page.url);
+		const u = new URL(page.url.href);
 		if (value) u.searchParams.set(key, value);
 		else u.searchParams.delete(key);
 		u.searchParams.delete('new');
-		goto(u, { replaceState: true, keepFocus: true, noScroll: true });
+		goto(u, { replace: true, reset: false });
 	}
 
 	const dayNo = (id: number | null) => data.days.find((d) => d.id === id)?.dayNumber;

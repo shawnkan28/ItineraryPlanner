@@ -2,11 +2,11 @@ import { error, fail } from '@sveltejs/kit';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { db, t } from '$lib/server/db';
-import { resolvePlace, tripId } from '$lib/server/repo';
-import { ATTACHMENT_ROOT } from '$lib/server/vault';
-import { daySchema, parseForm, planItemSchema, sectionSchema } from '$lib/schemas';
-import { SECTION_ORDER } from '$lib/export/markdown';
+import { db, t } from '#lib/server/db/index.ts';
+import { resolvePlace, tripId } from '#lib/server/repo.ts';
+import { ATTACHMENT_ROOT } from '#lib/server/vault.ts';
+import { daySchema, parseForm, planItemSchema, sectionSchema } from '#lib/schemas.ts';
+import { SECTION_ORDER } from '#lib/export/markdown.ts';
 
 function getDay(params: { id: string; dayId: string }) {
 	const trip = tripId(params);

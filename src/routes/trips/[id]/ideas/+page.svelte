@@ -3,12 +3,12 @@
 	import { invalidateAll } from '$app/navigation';
 	import { dndzone, type DndEvent } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
-	import { keep } from '$lib/forms';
-	import { formatMoney } from '$lib/money';
-	import { niceDate } from '$lib/dates';
-	import PlaceInput from '$lib/components/PlaceInput.svelte';
-	import StatusBadge from '$lib/components/StatusBadge.svelte';
-	import type { Idea } from '$lib/server/db/schema';
+	import { keep } from '#lib/forms.ts';
+	import { formatMoney } from '#lib/money.ts';
+	import { niceDate } from '#lib/dates.ts';
+	import PlaceInput from '#lib/components/PlaceInput.svelte';
+	import StatusBadge from '#lib/components/StatusBadge.svelte';
+	import type { Idea } from '#lib/server/db/schema.ts';
 
 	let { data, form } = $props();
 	const placeName = (id: number | null) => data.places.find((p) => p.id === id)?.name ?? '';

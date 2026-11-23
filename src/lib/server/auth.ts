@@ -1,13 +1,13 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { env } from '$env/dynamic/private';
+import { APP_PASSWORD, SESSION_SECRET } from '$app/env/private';
 
 export const SESSION_COOKIE = 'ip_session';
 const MAX_AGE = 60 * 60 * 24 * 60; // 60 days: the phone stays logged in for the whole trip
 
-export const authEnabled = () => Boolean(env.APP_PASSWORD);
+export const authEnabled = () => Boolean(APP_PASSWORD);
 
 function secret() {
-	return env.SESSION_SECRET || env.APP_PASSWORD || 'dev-secret';
+	return SESSION_SECRET || APP_PASSWORD || 'dev-secret';
 }
 
 function sign(payload: string) {
@@ -32,7 +32,7 @@ export function readSession(cookie: string | undefined): number | null {
 }
 
 export function checkPassword(password: string) {
-	const expected = Buffer.from(env.APP_PASSWORD ?? '');
+	const expected = Buffer.from(APP_PASSWORD ?? '');
 	const given = Buffer.from(password);
 	return expected.length === given.length && timingSafeEqual(expected, given);
 }

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { niceDate } from '$lib/dates';
+	import { niceDate } from '#lib/dates.ts';
 
 	let { data } = $props();
 	const base = $derived(`/trips/${data.trip.id}`);

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { niceDate, daysBetween } from '$lib/dates';
-	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import { niceDate, daysBetween } from '#lib/dates.ts';
+	import StatusBadge from '#lib/components/StatusBadge.svelte';
 
 	let { data, form } = $props();
 	let showNew = $state(false);

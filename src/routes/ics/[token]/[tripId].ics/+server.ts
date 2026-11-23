@@ -1,9 +1,9 @@
 import { error } from '@sveltejs/kit';
 import { timingSafeEqual } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
-import { db, t } from '$lib/server/db';
-import { getTrip } from '$lib/server/repo';
-import { icsToken } from '$lib/server/settings';
+import { db, t } from '#lib/server/db/index.ts';
+import { getTrip } from '#lib/server/repo.ts';
+import { icsToken } from '#lib/server/settings.ts';
 
 const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
 const icsDate = (iso: string) => iso.replace(/-/g, '');

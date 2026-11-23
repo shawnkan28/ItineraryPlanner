@@ -1,10 +1,10 @@
 import { fail } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { existsSync } from 'node:fs';
-import { db, t } from '$lib/server/db';
-import { choiceFromParams, prepareExport } from '$lib/server/exporter';
-import { tripId } from '$lib/server/repo';
-import { vaultPath } from '$lib/server/settings';
+import { db, t } from '#lib/server/db/index.ts';
+import { choiceFromParams, prepareExport } from '#lib/server/exporter.ts';
+import { tripId } from '#lib/server/repo.ts';
+import { vaultPath } from '#lib/server/settings.ts';
 import {
 	lastExport,
 	lineDiff,
@@ -12,7 +12,7 @@ import {
 	writeVaultExport,
 	type PlannedFile,
 	type Resolution
-} from '$lib/server/vault';
+} from '#lib/server/vault.ts';
 
 export const load = ({ params, url }) => {
 	const id = tripId(params);

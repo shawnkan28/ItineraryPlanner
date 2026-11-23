@@ -4,14 +4,14 @@
 	import { page } from '$app/state';
 	import { dndzone, type DndEvent } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
-	import { niceDate } from '$lib/dates';
-	import { keep } from '$lib/forms';
-	import { SECTION_LABEL } from '$lib/export/markdown';
-	import LinkField from '$lib/components/LinkField.svelte';
-	import PlaceInput from '$lib/components/PlaceInput.svelte';
-	import StatusBadge from '$lib/components/StatusBadge.svelte';
-	import JournalEditor from '$lib/components/JournalEditor.svelte';
-	import type { PlanItem, SectionKind } from '$lib/server/db/schema';
+	import { niceDate } from '#lib/dates.ts';
+	import { keep } from '#lib/forms.ts';
+	import { SECTION_LABEL } from '#lib/export/markdown.ts';
+	import LinkField from '#lib/components/LinkField.svelte';
+	import PlaceInput from '#lib/components/PlaceInput.svelte';
+	import StatusBadge from '#lib/components/StatusBadge.svelte';
+	import JournalEditor from '#lib/components/JournalEditor.svelte';
+	import type { PlanItem, SectionKind } from '#lib/server/db/schema.ts';
 
 	let { data, form } = $props();
 	const day = $derived(data.day);

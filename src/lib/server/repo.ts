@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
-import { addDays, daysBetween } from '$lib/dates';
-import type { TripBundle } from '$lib/export/types';
+import { addDays, daysBetween } from '#lib/dates.ts';
+import type { TripBundle } from '#lib/export/types.ts';
 import { db, t } from './db';
 import type { PlaceLevel } from './db/schema';
 

@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
-import { ATTACHMENT_ROOT } from '$lib/server/vault';
+import { ATTACHMENT_ROOT } from '#lib/server/vault.ts';
 
 const TYPES: Record<string, string> = {
 	png: 'image/png',

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { addDays, daysBetween, niceDate } from '$lib/dates';
-	import { keep } from '$lib/forms';
-	import PlaceInput from '$lib/components/PlaceInput.svelte';
+	import { addDays, daysBetween, niceDate } from '#lib/dates.ts';
+	import { keep } from '#lib/forms.ts';
+	import PlaceInput from '#lib/components/PlaceInput.svelte';
 
 	let { data, form } = $props();
 	const tripNights = $derived(daysBetween(data.trip.startDate, data.trip.endDate));

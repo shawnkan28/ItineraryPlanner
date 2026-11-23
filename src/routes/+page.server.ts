@@ -1,8 +1,8 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { asc, sql } from 'drizzle-orm';
-import { db, t } from '$lib/server/db';
-import { syncDays } from '$lib/server/repo';
-import { parseForm, tripSchema } from '$lib/schemas';
+import { db, t } from '#lib/server/db/index.ts';
+import { syncDays } from '#lib/server/repo.ts';
+import { parseForm, tripSchema } from '#lib/schemas.ts';
 
 export const load = () => {
 	const trips = db

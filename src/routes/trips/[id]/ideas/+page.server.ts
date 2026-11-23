@@ -1,9 +1,9 @@
 import { fail } from '@sveltejs/kit';
 import { and, asc, eq, sql } from 'drizzle-orm';
-import { db, t } from '$lib/server/db';
-import { resolvePlace, tripId } from '$lib/server/repo';
-import { decisionSchema, ideaSchema, parseForm, staySchema } from '$lib/schemas';
-import { toMinor } from '$lib/money';
+import { db, t } from '#lib/server/db/index.ts';
+import { resolvePlace, tripId } from '#lib/server/repo.ts';
+import { decisionSchema, ideaSchema, parseForm, staySchema } from '#lib/schemas.ts';
+import { toMinor } from '#lib/money.ts';
 
 export const load = ({ params }) => {
 	const id = tripId(params);

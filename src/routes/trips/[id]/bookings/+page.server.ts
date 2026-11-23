@@ -1,10 +1,10 @@
 import { fail } from '@sveltejs/kit';
 import { and, asc, eq } from 'drizzle-orm';
-import { todayIso } from '$lib/dates';
-import { toMinor } from '$lib/money';
-import { db, t } from '$lib/server/db';
-import { getTrip, tripId } from '$lib/server/repo';
-import { bookingSchema, parseForm } from '$lib/schemas';
+import { todayIso } from '#lib/dates.ts';
+import { toMinor } from '#lib/money.ts';
+import { db, t } from '#lib/server/db/index.ts';
+import { getTrip, tripId } from '#lib/server/repo.ts';
+import { bookingSchema, parseForm } from '#lib/schemas.ts';
 
 export const load = ({ params }) => {
 	const id = tripId(params);

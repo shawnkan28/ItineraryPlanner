@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
-import { db, t } from '$lib/server/db';
-import { journalSchema } from '$lib/schemas';
+import { db, t } from '#lib/server/db/index.ts';
+import { journalSchema } from '#lib/schemas.ts';
 
 export const GET = ({ params }) => {
 	const entry = db.select().from(t.journalEntry).where(eq(t.journalEntry.dayId, Number(params.dayId))).get();

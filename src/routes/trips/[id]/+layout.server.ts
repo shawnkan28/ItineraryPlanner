@@ -1,6 +1,6 @@
 import { asc, eq } from 'drizzle-orm';
-import { db, t } from '$lib/server/db';
-import { allPlaces, bases, getTrip, tripId } from '$lib/server/repo';
+import { db, t } from '#lib/server/db/index.ts';
+import { allPlaces, bases, getTrip, tripId } from '#lib/server/repo.ts';
 
 export const load = ({ params }) => {
 	const id = tripId(params);

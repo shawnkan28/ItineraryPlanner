@@ -1,8 +1,8 @@
 import { fail } from '@sveltejs/kit';
 import { and, asc, eq, sql } from 'drizzle-orm';
-import { db, t } from '$lib/server/db';
-import { chooseRoute, dateStops, resolvePlace, stopsOf, tripId } from '$lib/server/repo';
-import { parseForm, routeStopSchema } from '$lib/schemas';
+import { db, t } from '#lib/server/db/index.ts';
+import { chooseRoute, dateStops, resolvePlace, stopsOf, tripId } from '#lib/server/repo.ts';
+import { parseForm, routeStopSchema } from '#lib/schemas.ts';
 
 export const load = ({ params }) => {
 	const id = tripId(params);

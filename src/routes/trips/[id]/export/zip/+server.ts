@@ -1,7 +1,7 @@
-import { choiceFromParams, prepareExport } from '$lib/server/exporter';
-import { getTrip, tripId } from '$lib/server/repo';
-import { vaultPath } from '$lib/server/settings';
-import { buildZip } from '$lib/server/vault';
+import { choiceFromParams, prepareExport } from '#lib/server/exporter.ts';
+import { getTrip, tripId } from '#lib/server/repo.ts';
+import { vaultPath } from '#lib/server/settings.ts';
+import { buildZip } from '#lib/server/vault.ts';
 
 export const GET = async ({ params, url }) => {
 	const id = tripId(params);

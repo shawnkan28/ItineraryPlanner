@@ -22,9 +22,9 @@
 	};
 
 	function toggle(key: string, value: boolean) {
-		const u = new URL(page.url);
+		const u = new URL(page.url.href);
 		u.searchParams.set(key, value ? '1' : '0');
-		goto(u, { replaceState: true, noScroll: true, keepFocus: true });
+		goto(u, { replace: true, reset: false });
 	}
 	const name = (p: string) => p.split('/').pop();
 	const folder = (p: string) => p.split('/').slice(0, -1).join('/');

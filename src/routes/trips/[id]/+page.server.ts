@@ -1,11 +1,11 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
-import { isDue } from '$lib/bookings';
-import { todayIso } from '$lib/dates';
-import { sumByCurrency } from '$lib/money';
-import { db, t } from '$lib/server/db';
-import { syncDays, tripId } from '$lib/server/repo';
-import { parseForm, tripSchema } from '$lib/schemas';
+import { isDue } from '#lib/bookings.ts';
+import { todayIso } from '#lib/dates.ts';
+import { sumByCurrency } from '#lib/money.ts';
+import { db, t } from '#lib/server/db/index.ts';
+import { syncDays, tripId } from '#lib/server/repo.ts';
+import { parseForm, tripSchema } from '#lib/schemas.ts';
 
 export const load = ({ params }) => {
 	const id = tripId(params);

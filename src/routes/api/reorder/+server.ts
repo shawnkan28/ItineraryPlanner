@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
-import { db, t } from '$lib/server/db';
+import { db, t } from '#lib/server/db/index.ts';
 
 const body = z.discriminatedUnion('kind', [
 	z.object({

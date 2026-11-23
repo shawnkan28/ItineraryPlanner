@@ -1,5 +1,6 @@
-import { redirect, type Handle } from '@sveltejs/kit';
-import { authEnabled, readSession, SESSION_COOKIE } from '$lib/server/auth';
+import { redirect } from '@sveltejs/kit';
+import type { Handle } from '@sveltejs/kit/hooks';
+import { authEnabled, readSession, SESSION_COOKIE } from '#lib/server/auth.ts';
 
 const PUBLIC = ['/login', '/ics/'];
 

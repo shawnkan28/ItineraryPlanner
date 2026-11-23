@@ -11,7 +11,7 @@ import type {
 	RouteStop,
 	Stay,
 	Trip
-} from '$lib/server/db/schema';
+} from '#lib/server/db/schema.ts';
 
 /** Everything the exporter needs, loaded up front so the templates stay pure. */
 export interface TripBundle {

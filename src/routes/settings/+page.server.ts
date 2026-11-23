@@ -1,17 +1,17 @@
 import { fail } from '@sveltejs/kit';
 import { asc } from 'drizzle-orm';
 import { existsSync } from 'node:fs';
-import { env } from '$env/dynamic/private';
-import { authEnabled } from '$lib/server/auth';
-import { DB_PATH, db, t } from '$lib/server/db';
-import { getSetting, icsToken, setSetting, vaultPath } from '$lib/server/settings';
-import { importPlaces } from '$lib/server/vault';
+import { VAULT_PATH } from '$app/env/private';
+import { authEnabled } from '#lib/server/auth.ts';
+import { DB_PATH, db, t } from '#lib/server/db/index.ts';
+import { getSetting, icsToken, setSetting, vaultPath } from '#lib/server/settings.ts';
+import { importPlaces } from '#lib/server/vault.ts';
 
 export const load = ({ url }) => {
 	const vault = vaultPath();
 	return {
 		vault,
-		vaultFromEnv: !getSetting('vault_path') && Boolean(env.VAULT_PATH),
+		vaultFromEnv: !getSetting('vault_path') && Boolean(VAULT_PATH),
 		vaultOk: Boolean(vault && existsSync(vault)),
 		dbPath: DB_PATH,
 		authEnabled: authEnabled(),

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { addDays, ddMonRange } from '$lib/dates';
-	import { formatMoney, fromMinor, sumByCurrency } from '$lib/money';
-	import PlaceInput from '$lib/components/PlaceInput.svelte';
-	import StatusBadge from '$lib/components/StatusBadge.svelte';
-	import type { Stay } from '$lib/server/db/schema';
+	import { addDays, ddMonRange } from '#lib/dates.ts';
+	import { formatMoney, fromMinor, sumByCurrency } from '#lib/money.ts';
+	import PlaceInput from '#lib/components/PlaceInput.svelte';
+	import StatusBadge from '#lib/components/StatusBadge.svelte';
+	import type { Stay } from '#lib/server/db/schema.ts';
 
 	let { data, form } = $props();
 	const placeName = (id: number | null) => data.places.find((p) => p.id === id)?.name ?? '';

@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { sqlite } from '$lib/server/db';
+import { sqlite } from '#lib/server/db/index.ts';
 
 /** Consistent snapshot via the SQLite online backup API, safe while the app is running. */
 export const GET = async () => {

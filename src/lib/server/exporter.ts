@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildExport, type ExportOptions } from '$lib/export/markdown';
-import type { ExportFile } from '$lib/export/types';
+import { buildExport, type ExportOptions } from '#lib/export/markdown.ts';
+import type { ExportFile } from '#lib/export/types.ts';
 import { loadBundle } from './repo';
 import { ATTACHMENT_ROOT, missingNotes, placeStub } from './vault';
 

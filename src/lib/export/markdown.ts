@@ -1,6 +1,6 @@
-import { addDays, ddMon, ddMonRange, ddMonYyyy, dddDd, yearMonth } from '$lib/dates';
-import { formatMoney } from '$lib/money';
-import type { Day, PlanItem, PlanSection, RouteStop, SectionKind } from '$lib/server/db/schema';
+import { addDays, ddMon, ddMonRange, ddMonYyyy, dddDd, yearMonth } from '#lib/dates.ts';
+import { formatMoney } from '#lib/money.ts';
+import type { Day, PlanItem, PlanSection, RouteStop, SectionKind } from '#lib/server/db/schema.ts';
 import { cleanUrl, escapeTableCell, wikilink } from './links';
 import type { ExportAttachment, ExportFile, TripBundle } from './types';
 

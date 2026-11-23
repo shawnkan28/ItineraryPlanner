@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { authEnabled, checkPassword, createSession, SESSION_COOKIE } from '$lib/server/auth';
+import { authEnabled, checkPassword, createSession, SESSION_COOKIE } from '#lib/server/auth.ts';
 
 export const load = ({ locals }) => {
 	if (!authEnabled() || locals.userId) redirect(303, '/');

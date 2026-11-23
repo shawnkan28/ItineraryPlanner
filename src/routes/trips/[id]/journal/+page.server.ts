@@ -1,7 +1,7 @@
 import { asc, eq, inArray } from 'drizzle-orm';
-import { todayIso } from '$lib/dates';
-import { db, t } from '$lib/server/db';
-import { tripId } from '$lib/server/repo';
+import { todayIso } from '#lib/dates.ts';
+import { db, t } from '#lib/server/db/index.ts';
+import { tripId } from '#lib/server/repo.ts';
 
 export const load = ({ params }) => {
 	const id = tripId(params);

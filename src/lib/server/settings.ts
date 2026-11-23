@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { randomBytes } from 'node:crypto';
-import { env } from '$env/dynamic/private';
+import { VAULT_PATH } from '$app/env/private';
 import { db, t } from './db';
 
 export function getSetting(key: string): string | null {
@@ -16,7 +16,7 @@ export function setSetting(key: string, value: string | null) {
 
 /** Vault path: setting from the UI wins, then the VAULT_PATH env var. */
 export function vaultPath(): string | null {
-	return getSetting('vault_path') || env.VAULT_PATH || null;
+	return getSetting('vault_path') || VAULT_PATH || null;
 }
 
 /** Token used by the .ics feed URL so a phone calendar can subscribe without the login cookie. */

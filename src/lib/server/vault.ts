@@ -3,8 +3,8 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSyn
 import { dirname, join, resolve } from 'node:path';
 import JSZip from 'jszip';
 import { desc, eq } from 'drizzle-orm';
-import { wikilinkTargets } from '$lib/export/links';
-import type { ExportAttachment, ExportFile } from '$lib/export/types';
+import { wikilinkTargets } from '#lib/export/links.ts';
+import type { ExportAttachment, ExportFile } from '#lib/export/types.ts';
 import { db, t } from './db';
 import type { ExportedFile, PlaceLevel } from './db/schema';
 

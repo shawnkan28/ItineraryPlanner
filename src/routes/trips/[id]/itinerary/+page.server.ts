@@ -1,8 +1,8 @@
 import { fail } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
-import { db, t } from '$lib/server/db';
-import { loadBundle, resolvePlace, tripId } from '$lib/server/repo';
-import { daySchema, parseForm } from '$lib/schemas';
+import { db, t } from '#lib/server/db/index.ts';
+import { loadBundle, resolvePlace, tripId } from '#lib/server/repo.ts';
+import { daySchema, parseForm } from '#lib/schemas.ts';
 
 export const load = ({ params }) => {
 	const b = loadBundle(tripId(params));
