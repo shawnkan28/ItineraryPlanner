@@ -15,6 +15,20 @@
       "when": 1795520553272,
       "tag": "0001_overnight_transport",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1795524374598,
+      "tag": "0002_trip_cities",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1795525307349,
+      "tag": "0003_idea_city",
+      "breakpoints": true
     }
   ]
 }

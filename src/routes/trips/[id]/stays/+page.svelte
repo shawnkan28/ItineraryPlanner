@@ -91,7 +91,7 @@
 		{/if}
 	{/each}
 	{#if data.bases.length === 0}
-		<p class="muted small">Choose a route in Phase 1 to group stays by base.</p>
+		<p class="muted small">Choose a route in Phase 3 to group stays by base.</p>
 		<button onclick={() => { editing = 'new'; newBase = null; }}>+ Hotel</button>
 	{/if}
 </main>

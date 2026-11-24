@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { stopTitle } from '#lib/route.ts';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { dndzone, type DndEvent } from 'svelte-dnd-action';
@@ -13,31 +12,42 @@
 
 	let { data, form } = $props();
 	const placeName = (id: number | null) => data.places.find((p) => p.id === id)?.name ?? '';
-	const baseName = (b: (typeof data.bases)[number]) =>
-		stopTitle(b, data.bases[data.bases.indexOf(b) + 1], (id) => placeName(id) || null);
 	const flipDurationMs = 150;
 
-	type Column = { baseId: number | null; title: string; sub: string; items: Idea[] };
+	type City = (typeof data.cities)[number];
+	type Column = { cityId: number | null; city: City | null; title: string; sub: string; items: Idea[] };
+	const PRIORITY_LABEL = { must: 'Must', maybe: 'Maybe', skip: 'Skipped' } as const;
+	const RANK = { must: 0, maybe: 1, skip: 2 } as const;
+	const nightsText = (c: City) =>
+		c.nightsMax ? `${c.nightsMin}–${c.nightsMax} nights` : `${c.nightsMin} ${c.nightsMin === 1 ? 'night' : 'nights'}`;
 
+	/** One column per shortlisted city (Must, then Maybe; skipped ones only while they still hold ideas). */
 	function buildColumns(): Column[] {
-		const cols: Column[] = data.bases.map((b) => ({
-			baseId: b.id,
-			title: baseName(b) || 'Base',
-			sub: `${b.nights} ${b.nights === 1 ? 'night' : 'nights'}${b.startDate ? ` · ${niceDate(b.startDate)}` : ''}`,
-			items: data.ideas.filter((i) => i.baseId === b.id)
+		const cities = data.cities
+			.filter((c) => c.priority !== 'skip' || data.ideas.some((i) => i.cityId === c.id))
+			.sort((a, b) => RANK[a.priority] - RANK[b.priority]);
+		const cols: Column[] = cities.map((c) => ({
+			cityId: c.id,
+			city: c,
+			title: placeName(c.placeId) || 'City',
+			sub: `${PRIORITY_LABEL[c.priority]} · ${nightsText(c)}`,
+			items: data.ideas.filter((i) => i.cityId === c.id)
 		}));
-		const known = new Set(data.bases.map((b) => b.id));
+		const known = new Set(cities.map((c) => c.id));
 		cols.push({
-			baseId: null,
+			cityId: null,
+			city: null,
 			title: 'Unassigned',
-			sub: 'Not tied to a base',
-			items: data.ideas.filter((i) => i.baseId === null || !known.has(i.baseId))
+			sub: 'Not tied to a city',
+			items: data.ideas.filter((i) => i.cityId === null || !known.has(i.cityId))
 		});
 		return cols;
 	}
 
 	let columns = $derived(buildColumns());
 	let showHidden = $state(true);
+	/** Idea whose actions panel is open (dragging is paused meanwhile so inputs stay usable). */
+	let openIdea: number | null = $state(null);
 
 	function consider(col: number, e: CustomEvent<DndEvent<Idea>>) {
 		columns = columns.map((c, i) => (i === col ? { ...c, items: e.detail.items } : c));
@@ -50,13 +60,16 @@
 			body: JSON.stringify({
 				kind: 'ideas',
 				tripId: data.trip.id,
-				columns: columns.map((c) => ({ baseId: c.baseId, ids: c.items.map((i) => i.id) }))
+				columns: columns.map((c) => ({ cityId: c.cityId, ids: c.items.map((i) => i.id) }))
 			})
 		});
 		await invalidateAll();
 	}
 
-	const staysFor = (baseId: number | null) => data.stays.filter((s) => s.baseId === baseId);
+	/** Stay candidates need a base, so they appear once the chosen route stays in this city. */
+	const baseFor = (city: City | null) =>
+		city ? data.bases.find((b) => b.kind === 'stay' && b.placeId === city.placeId) : undefined;
+	const staysFor = (baseId: number) => data.stays.filter((s) => s.baseId === baseId);
 	const open = $derived(data.decisions.filter((d) => d.status === 'open'));
 	const decided = $derived(data.decisions.filter((d) => d.status === 'decided'));
 </script>
@@ -68,30 +81,35 @@
 		<div>
 			<h2>Phase 2 · Ideas</h2>
 			<p class="muted small">
-				Candidate activities per base. Drag to reorder or move between bases. Dropped and parked ideas
-				fill the “Dropped / parked” section of the exported overview.
+				Things to do and places to visit in each city. Drag to reorder or move between cities. Dropped
+				and parked ideas fill the “Dropped / parked” section of the exported overview.
 			</p>
 		</div>
-		<label class="inline small"><input type="checkbox" bind:checked={showHidden} /> Show dropped / parked</label>
+		<div class="row">
+			<label class="inline small"><input type="checkbox" bind:checked={showHidden} /> Show dropped / parked</label>
+			<a class="next" href="/trips/{data.trip.id}/route">Next: build route →</a>
+		</div>
 	</div>
-	{#if data.bases.length === 0}
-		<p class="card small">No route chosen yet. <a href="/trips/{data.trip.id}/route">Choose a route</a> to get one column per base.</p>
+	{#if data.cities.length === 0}
+		<p class="card small">No cities yet. <a href="/trips/{data.trip.id}/cities">Shortlist cities</a> to get one column per city.</p>
 	{/if}
 	{#if form && 'planned' in form}<p class="badge green">{form.planned}</p>{/if}
 	{#if form && 'error' in form}<p class="error">{form.error}</p>{/if}
 
 	<div class="layout">
 		<div class="board">
-			{#each columns as col, ci (col.baseId ?? 'none')}
-				<section class="column">
+			{#each columns as col, ci (col.cityId ?? 'none')}
+				{@const base = baseFor(col.city)}
+				<section class="column prio-{col.city?.priority ?? 'none'}" id={col.cityId ? `city-${col.cityId}` : undefined}>
 					<header>
 						<h3>{col.title}</h3>
 						<span class="muted small">{col.sub}</span>
+						{#if col.city?.notes}<span class="small why">{col.city.notes}</span>{/if}
 					</header>
 
 					<div
 						class="zone"
-						use:dndzone={{ items: col.items, flipDurationMs, type: 'idea', dropTargetStyle: {} }}
+						use:dndzone={{ items: col.items, flipDurationMs, type: 'idea', dropTargetStyle: {}, dragDisabled: openIdea !== null }}
 						onconsider={(e) => consider(ci, e)}
 						onfinalize={(e) => finalize(ci, e)}
 					>
@@ -110,9 +128,8 @@
 								{#if idea.details}<p class="small details">{idea.details}</p>{/if}
 								{#if idea.reason}<p class="small muted">Reason: {idea.reason}</p>{/if}
 
-								<details>
-									<summary class="small muted">Actions</summary>
-									<div class="stack actions">
+								{#if openIdea === idea.id}
+									<div class="stack actions" id="idea-actions-{idea.id}">
 										{#if data.days.length}
 											<form method="POST" action="?/planIdea" use:enhance class="row">
 												<input type="hidden" name="ideaId" value={idea.id} />
@@ -136,7 +153,7 @@
 										</form>
 										<form method="POST" action="?/updateIdea" use:enhance={keep} class="stack">
 											<input type="hidden" name="ideaId" value={idea.id} />
-											<input type="hidden" name="baseId" value={idea.baseId ?? ''} />
+											<input type="hidden" name="cityId" value={idea.cityId ?? ''} />
 											<input type="hidden" name="status" value={idea.status} />
 											<input type="hidden" name="reason" value={idea.reason ?? ''} />
 											<input name="title" value={idea.title} required aria-label="Title" />
@@ -148,22 +165,34 @@
 											</div>
 										</form>
 									</div>
-								</details>
+								{/if}
+								<footer class="idea-foot">
+									<button
+										type="button"
+										class="sm"
+										class:open={openIdea === idea.id}
+										aria-expanded={openIdea === idea.id}
+										aria-controls="idea-actions-{idea.id}"
+										onclick={() => (openIdea = openIdea === idea.id ? null : idea.id)}
+									>
+										Actions <span class="chev" aria-hidden="true">▴</span>
+									</button>
+								</footer>
 							</article>
 						{/each}
 					</div>
 
 					<form method="POST" action="?/addIdea" use:enhance class="add">
-						<input type="hidden" name="baseId" value={col.baseId ?? ''} />
-						<input name="title" placeholder="+ Add idea" required />
+						<input type="hidden" name="cityId" value={col.cityId ?? ''} />
+						<input name="title" placeholder="+ Thing to do or see" required />
 						<PlaceInput name="placeName" places={data.places} placeholder="Place (optional)" />
 						<button class="sm">Add</button>
 					</form>
 
-					{#if col.baseId !== null}
+					{#if base}
 						<div class="stays">
 							<h4 class="small muted">Stay candidates</h4>
-							{#each staysFor(col.baseId) as s (s.id)}
+							{#each staysFor(base.id) as s (s.id)}
 								<div class="small stay">
 									<StatusBadge status={s.status} />
 									<a href="/trips/{data.trip.id}/stays#stay-{s.id}">{s.hotel}</a>
@@ -171,7 +200,7 @@
 								</div>
 							{/each}
 							<form method="POST" action="?/addStay" use:enhance class="add">
-								<input type="hidden" name="baseId" value={col.baseId} />
+								<input type="hidden" name="baseId" value={base.id} />
 								<input name="hotel" placeholder="+ Hotel candidate" required />
 								<input name="price" placeholder="Price ({data.trip.homeCurrency})" inputmode="decimal" />
 								<input name="url" placeholder="Link" type="url" />
@@ -274,6 +303,26 @@
 			grid-auto-columns: auto;
 		}
 	}
+	.next {
+		border: 1px solid var(--focus);
+		background: var(--focus);
+		color: #fff;
+		border-radius: 7px;
+		padding: 0.45rem 0.9rem;
+		text-decoration: none;
+		font-weight: 600;
+		white-space: nowrap;
+	}
+	.why {
+		color: var(--muted);
+		font-style: italic;
+	}
+	.column.prio-must {
+		border-top: 3px solid var(--focus);
+	}
+	.column.prio-maybe {
+		border-top: 3px solid var(--maybe);
+	}
 	.column {
 		background: var(--surface-2);
 		border-radius: var(--radius);
@@ -310,6 +359,23 @@
 	}
 	.actions {
 		margin-top: 0.5rem;
+	}
+	.idea-foot {
+		display: flex;
+		justify-content: flex-end;
+		margin-top: 0.5rem;
+		padding-top: 0.4rem;
+		border-top: 1px solid var(--border);
+	}
+	.idea-foot button.open {
+		background: var(--surface-2);
+	}
+	.chev {
+		font-size: 0.7rem;
+		transition: transform 0.15s;
+	}
+	.idea-foot button.open .chev {
+		transform: rotate(180deg);
 	}
 	.add {
 		display: grid;

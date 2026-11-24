@@ -35,7 +35,7 @@
 <main class="stack">
 	<h2>Export to Obsidian</h2>
 	<p class="muted small">
-		Exports one journal note per day and the final “Itinerary” overview. Phase 1 and Phase 2 stay in the app.
+		Exports one journal note per day and the final “Itinerary” overview. Cities, ideas and route options stay in the app.
 		Files edited in the vault since the last export are never overwritten without asking, and nothing is ever deleted.
 	</p>
 

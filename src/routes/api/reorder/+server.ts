@@ -8,7 +8,8 @@ const body = z.discriminatedUnion('kind', [
 	z.object({
 		kind: z.literal('ideas'),
 		tripId: z.number().int(),
-		columns: z.array(z.object({ baseId: z.number().int().nullable(), ids: z.array(z.number().int()) }))
+		/** One column per shortlisted city (cityId) plus Unassigned (null). */
+		columns: z.array(z.object({ cityId: z.number().int().nullable(), ids: z.array(z.number().int()) }))
 	}),
 	z.object({
 		kind: z.literal('stops'),
@@ -18,10 +19,18 @@ const body = z.discriminatedUnion('kind', [
 			z.object({
 				optionId: z.number().int(),
 				items: z.array(
-					z.union([z.object({ id: z.number().int() }), z.object({ placeId: z.number().int() })])
+					z.union([
+						z.object({ id: z.number().int() }),
+						z.object({ placeId: z.number().int(), nights: z.number().int().min(0).max(60).optional() })
+					])
 				)
 			})
 		)
+	}),
+	z.object({
+		kind: z.literal('cities'),
+		tripId: z.number().int(),
+		columns: z.array(z.object({ priority: z.enum(['must', 'maybe', 'skip']), ids: z.array(z.number().int()) }))
 	}),
 	z.object({
 		kind: z.literal('items'),
@@ -42,10 +51,30 @@ export const POST = async ({ request, locals }) => {
 			? db.select({ id: t.idea.id, tripId: t.idea.tripId }).from(t.idea).where(inArray(t.idea.id, ids)).all()
 			: [];
 		if (own.some((i) => i.tripId !== b.tripId) || own.length !== ids.length) error(403, 'Not your ideas');
+		const cityIds = b.columns.flatMap((c) => (c.cityId === null ? [] : [c.cityId]));
+		const cities = cityIds.length
+			? db.select({ id: t.tripCity.id, tripId: t.tripCity.tripId }).from(t.tripCity).where(inArray(t.tripCity.id, cityIds)).all()
+			: [];
+		if (cities.some((c) => c.tripId !== b.tripId) || cities.length !== new Set(cityIds).size) error(403, 'Not your cities');
 		db.transaction((tx) => {
 			for (const col of b.columns)
 				col.ids.forEach((id, position) =>
-					tx.update(t.idea).set({ position, baseId: col.baseId }).where(eq(t.idea.id, id)).run()
+					tx.update(t.idea).set({ position, cityId: col.cityId }).where(eq(t.idea.id, id)).run()
+				);
+		});
+		return json({ ok: true });
+	}
+
+	if (b.kind === 'cities') {
+		const ids = b.columns.flatMap((c) => c.ids);
+		const own = ids.length
+			? db.select({ id: t.tripCity.id, tripId: t.tripCity.tripId }).from(t.tripCity).where(inArray(t.tripCity.id, ids)).all()
+			: [];
+		if (own.length !== ids.length || own.some((c) => c.tripId !== b.tripId)) error(403, 'Not your cities');
+		db.transaction((tx) => {
+			for (const col of b.columns)
+				col.ids.forEach((id, position) =>
+					tx.update(t.tripCity).set({ position, priority: col.priority }).where(eq(t.tripCity.id, id)).run()
 				);
 		});
 		return json({ ok: true });
@@ -77,7 +106,10 @@ export const POST = async ({ request, locals }) => {
 				col.items.forEach((item, position) => {
 					if ('id' in item)
 						tx.update(t.routeStop).set({ position, routeOptionId: col.optionId }).where(eq(t.routeStop.id, item.id)).run();
-					else tx.insert(t.routeStop).values({ routeOptionId: col.optionId, placeId: item.placeId, position, nights: 1 }).run();
+					else
+						tx.insert(t.routeStop)
+							.values({ routeOptionId: col.optionId, placeId: item.placeId, position, nights: item.nights ?? 1 })
+							.run();
 				});
 		});
 		for (const id of optionIds) dateStops(b.tripId, id);

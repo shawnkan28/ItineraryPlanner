@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 const json = <T>(name: string) => text(name, { mode: 'json' }).$type<T>();
@@ -11,6 +11,7 @@ export type TripStatus = 'planning' | 'booked' | 'ongoing' | 'done' | 'exported'
 export type PlaceLevel = 'country' | 'region' | 'city' | 'area' | 'place';
 export type StopKind = 'stay' | 'overnight_transport' | 'depart';
 export type TransportMode = 'ferry' | 'bus' | 'train' | 'flight';
+export type CityPriority = 'must' | 'maybe' | 'skip';
 export type IdeaStatus = 'idea' | 'planned' | 'dropped' | 'parked';
 export type SectionKind =
 	| 'focus'
@@ -95,6 +96,31 @@ export const place = sqliteTable('place', {
 	notes: text('notes')
 });
 
+/**
+ * Phase 1: the cities shortlist for a trip. Ideas (Phase 2) are collected per city, and routes
+ * (Phase 3) are built from it.
+ */
+export const tripCity = sqliteTable(
+	'trip_city',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		tripId: integer('trip_id')
+			.notNull()
+			.references(() => trip.id, { onDelete: 'cascade' }),
+		placeId: integer('place_id')
+			.notNull()
+			.references(() => place.id, { onDelete: 'cascade' }),
+		priority: text('priority').$type<CityPriority>().notNull().default('maybe'),
+		position: integer('position').notNull().default(0),
+		/** Nights wanted: "2" is min 2 / max null, "1–2" is min 1 / max 2. */
+		nightsMin: integer('nights_min').notNull().default(1),
+		nightsMax: integer('nights_max'),
+		/** Why you want to go (or, for Skip, why not). */
+		notes: text('notes')
+	},
+	(table) => [uniqueIndex('trip_city_trip_place').on(table.tripId, table.placeId)]
+);
+
 export const routeStop = sqliteTable('route_stop', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	routeOptionId: integer('route_option_id')
@@ -116,7 +142,10 @@ export const idea = sqliteTable('idea', {
 	tripId: integer('trip_id')
 		.notNull()
 		.references(() => trip.id, { onDelete: 'cascade' }),
+	/** Legacy: ideas used to be filed under a route stop. Ideas are now filed by city (cityId). */
 	baseId: integer('base_id').references(() => routeStop.id, { onDelete: 'set null' }),
+	/** The shortlisted city this idea belongs to; null = unassigned. */
+	cityId: integer('city_id').references(() => tripCity.id, { onDelete: 'set null' }),
 	placeId: integer('place_id').references(() => place.id, { onDelete: 'set null' }),
 	position: integer('position').notNull().default(0),
 	title: text('title').notNull(),
@@ -262,6 +291,7 @@ export const exportRun = sqliteTable('export_run', {
 export type Trip = typeof trip.$inferSelect;
 export type RouteOption = typeof routeOption.$inferSelect;
 export type RouteStop = typeof routeStop.$inferSelect;
+export type TripCity = typeof tripCity.$inferSelect;
 export type Place = typeof place.$inferSelect;
 export type Idea = typeof idea.$inferSelect;
 export type Decision = typeof decision.$inferSelect;

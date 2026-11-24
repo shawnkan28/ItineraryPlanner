@@ -20,7 +20,7 @@
 <svelte:head><title>Itinerary · {data.trip.name}</title></svelte:head>
 
 <main class="stack">
-	<h2>Phase 3 · Itinerary</h2>
+	<h2>Phase 4 · Itinerary</h2>
 
 	{#if data.decisions.length}
 		<section class="card callout question">
@@ -39,7 +39,7 @@
 			<a class="small" href="{base}/route">Edit route →</a>
 		</div>
 		{#if data.bases.length === 0}
-			<p class="empty">No route chosen. <a href="{base}/route">Pick one in Phase 1.</a></p>
+			<p class="empty">No route chosen. <a href="{base}/route">Pick one in Phase 3.</a></p>
 		{:else}
 			<div class="table-wrap">
 				<table>

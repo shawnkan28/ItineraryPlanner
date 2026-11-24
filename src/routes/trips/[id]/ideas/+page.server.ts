@@ -8,6 +8,12 @@ import { toMinor } from '#lib/money.ts';
 export const load = ({ params }) => {
 	const id = tripId(params);
 	return {
+		cities: db
+			.select()
+			.from(t.tripCity)
+			.where(eq(t.tripCity.tripId, id))
+			.orderBy(asc(t.tripCity.position), asc(t.tripCity.id))
+			.all(),
 		ideas: db.select().from(t.idea).where(eq(t.idea.tripId, id)).orderBy(asc(t.idea.position), asc(t.idea.id)).all(),
 		decisions: db.select().from(t.decision).where(eq(t.decision.tripId, id)).orderBy(asc(t.decision.id)).all(),
 		stays: db.select().from(t.stay).where(eq(t.stay.tripId, id)).orderBy(asc(t.stay.id)).all()
@@ -17,6 +23,12 @@ export const load = ({ params }) => {
 const num = (f: FormData, k: string) => Number(f.get(k));
 const ownIdea = (trip: number, id: number) =>
 	db.select().from(t.idea).where(and(eq(t.idea.id, id), eq(t.idea.tripId, trip))).get();
+/** Only file an idea under a city of this trip. */
+const cityOrNull = (trip: number, cityId: number | null) =>
+	cityId !== null &&
+	db.select().from(t.tripCity).where(and(eq(t.tripCity.id, cityId), eq(t.tripCity.tripId, trip))).get()
+		? cityId
+		: null;
 const ownDecision = (trip: number, id: number) =>
 	db.select().from(t.decision).where(and(eq(t.decision.id, id), eq(t.decision.tripId, trip))).get();
 
@@ -25,14 +37,14 @@ export const actions = {
 		const id = tripId(params);
 		const parsed = parseForm(ideaSchema, await request.formData());
 		if (!parsed.ok) return fail(400, parsed);
-		const { placeName, ...rest } = parsed.data;
+		const { placeName, cityId, ...rest } = parsed.data;
 		const max = db
 			.select({ n: sql<number>`coalesce(max(position), -1)` })
 			.from(t.idea)
 			.where(eq(t.idea.tripId, id))
 			.get()!.n;
 		db.insert(t.idea)
-			.values({ ...rest, tripId: id, placeId: resolvePlace(placeName), position: max + 1 })
+			.values({ ...rest, tripId: id, cityId: cityOrNull(id, cityId), placeId: resolvePlace(placeName), position: max + 1 })
 			.run();
 	},
 	updateIdea: async ({ params, request }) => {
@@ -42,9 +54,9 @@ export const actions = {
 		if (!idea) return fail(404);
 		const parsed = parseForm(ideaSchema, f);
 		if (!parsed.ok) return fail(400, parsed);
-		const { placeName, ...rest } = parsed.data;
+		const { placeName, cityId, ...rest } = parsed.data;
 		db.update(t.idea)
-			.set({ ...rest, placeId: resolvePlace(placeName) })
+			.set({ ...rest, cityId: cityOrNull(id, cityId), placeId: resolvePlace(placeName) })
 			.where(eq(t.idea.id, idea.id))
 			.run();
 	},
@@ -64,7 +76,7 @@ export const actions = {
 		if (!idea) return fail(404);
 		db.delete(t.idea).where(eq(t.idea.id, idea.id)).run();
 	},
-	/** Put an idea on a day's timeline (Phase 3) and mark it planned. */
+	/** Put an idea on a day's timeline (Phase 4) and mark it planned. */
 	planIdea: async ({ params, request, locals }) => {
 		const id = tripId(params);
 		const f = await request.formData();

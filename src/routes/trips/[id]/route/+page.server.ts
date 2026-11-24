@@ -14,7 +14,13 @@ export const load = ({ params }) => {
 		.orderBy(asc(t.routeOption.id))
 		.all()
 		.map((o) => ({ ...o, stops: stopsOf(o.id) }));
-	return { options };
+	const cities = db
+		.select()
+		.from(t.tripCity)
+		.where(eq(t.tripCity.tripId, id))
+		.orderBy(asc(t.tripCity.position), asc(t.tripCity.id))
+		.all();
+	return { options, cities };
 };
 
 /** Make sure an option id belongs to this trip. */

@@ -20,6 +20,9 @@
 		c ? (c.stop ?? { placeId: c.placeId, label: null, kind: 'stay' as const, transportMode: null, operator: null }) : null;
 	const nameOf = (id: number | null) => placeName(id) || null;
 
+	const cityOf = (placeId: number | null) => data.cities.find((c) => c.placeId === placeId);
+	const mustCities = $derived(data.cities.filter((c) => c.priority === 'must'));
+
 	// The stop editor: kind is chosen first and decides which fields follow.
 	let editKind: StopKind = $state('stay');
 	function openEditor(s: RouteStop) {
@@ -34,7 +37,7 @@
 	 * One card type for the whole board. Existing stops have id `s-<stopId>`; cards dragged out of
 	 * the places palette keep a `p-...` id until saved, and only carry a placeId.
 	 */
-	type Card = { id: string; stop: RouteStop | null; placeId: number | null; [key: string]: unknown };
+	type Card = { id: string; stop: RouteStop | null; placeId: number | null; nights?: number; [key: string]: unknown };
 	type Column = { optionId: number; items: Card[] };
 
 	const stopCard = (s: RouteStop): Card => ({ id: `s-${s.id}`, stop: s, placeId: s.placeId });
@@ -43,16 +46,23 @@
 		data.options.map((o) => ({ optionId: o.id, items: o.stops.map(stopCard) }))
 	);
 
-	// Palette: cities and areas from the places library, filterable.
+	// Palette: shortlisted cities first (Must, then Maybe), then the rest of the library, filterable.
 	let search = $state('');
+	const RANK = { must: 0, maybe: 1, skip: 3 } as const;
+	const rank = (placeId: number) => {
+		const c = cityOf(placeId);
+		return c ? RANK[c.priority] : 2;
+	};
 	const paletteSource = $derived(
 		data.places
-			.filter((p) => p.level === 'city' || p.level === 'area' || p.level === 'region')
+			.filter((p) => cityOf(p.id) || p.level === 'city' || p.level === 'area' || p.level === 'region')
 			.filter((p) => {
 				const q = search.trim().toLowerCase();
 				return !q || p.name.toLowerCase().includes(q) || p.aliases.some((a) => a.toLowerCase().includes(q));
 			})
-			.map((p): Card => ({ id: `p-${p.id}`, stop: null, placeId: p.id }))
+			.filter((p) => search.trim() || cityOf(p.id)?.priority !== 'skip')
+			.sort((a, b) => rank(a.id) - rank(b.id) || (cityOf(a.id)?.position ?? 0) - (cityOf(b.id)?.position ?? 0))
+			.map((p): Card => ({ id: `p-${p.id}`, stop: null, placeId: p.id, nights: cityOf(p.id)?.nightsMin }))
 	);
 	let palette: Card[] = $derived(paletteSource);
 
@@ -94,7 +104,7 @@
 					tripId: data.trip.id,
 					columns: columns.map((c) => ({
 						optionId: c.optionId,
-						items: c.items.map((card) => (card.stop ? { id: card.stop.id } : { placeId: card.placeId }))
+						items: c.items.map((card) => (card.stop ? { id: card.stop.id } : { placeId: card.placeId, nights: card.nights }))
 					}))
 				})
 			});
@@ -109,13 +119,14 @@
 		let d = data.trip.startDate;
 		return items.map((c) => {
 			const start = d;
-			d = addDays(d, c.stop?.nights ?? 1);
+			d = addDays(d, c.stop?.nights ?? c.nights ?? 1);
 			return start;
 		});
 	}
-	const totalNights = (items: Card[]) => items.reduce((n, c) => n + (c.stop?.nights ?? 1), 0);
+	const totalNights = (items: Card[]) => items.reduce((n, c) => n + (c.stop?.nights ?? c.nights ?? 1), 0);
 	let editing: number | null = $state(null);
 	const optionOf = (id: number) => data.options.find((o) => o.id === id)!;
+	const missingMust = (items: Card[]) => mustCities.filter((c) => !items.some((card) => card.placeId === c.placeId));
 </script>
 
 <svelte:head><title>Route · {data.trip.name}</title></svelte:head>
@@ -123,10 +134,10 @@
 <main class="stack wide">
 	<div class="spread">
 		<div>
-			<h2>Phase 1 · Route options</h2>
+			<h2>Phase 3 · Route options</h2>
 			<p class="muted small">
-				Drag places from the left into a route, drag stops to reorder them or move them to another
-				route. The trip has <strong>{tripNights}</strong> nights.
+				Put your shortlisted cities in order. Drag cities from the left into a route, drag stops to
+				reorder them or move them to another route. The trip has <strong>{tripNights}</strong> nights.
 			</p>
 		</div>
 		<div class="row">
@@ -137,6 +148,9 @@
 	{#if form && 'error' in form}<p class="error">{form.error}</p>{/if}
 	{#if form && 'chosen' in form}<p class="badge green">“{form.chosen}” is now the final route</p>{/if}
 
+	{#if data.cities.length === 0}
+		<p class="muted small">Tip: shortlist your cities in <a href="/trips/{data.trip.id}/cities">1 · Cities</a> first; they show up at the top of the palette.</p>
+	{/if}
 	<div class="board">
 		<!-- PLACES PALETTE -->
 		<section class="column palette">
@@ -151,7 +165,11 @@
 				onfinalize={paletteFinalize}
 			>
 				{#each palette as card (card.id)}
-					<div class="chip" animate:flip={{ duration: flipDurationMs }}>{placeName(card.placeId)}</div>
+					{@const city = cityOf(card.placeId)}
+					<div class="chip" class:must={city?.priority === 'must'} class:maybe={city?.priority === 'maybe'} animate:flip={{ duration: flipDurationMs }}>
+						<span class="grow">{placeName(card.placeId)}</span>
+						{#if city && city.priority !== 'skip'}<span class="tag small">{city.priority} · {city.nightsMax ? `${city.nightsMin}–${city.nightsMax}` : city.nightsMin}n</span>{/if}
+					</div>
 				{/each}
 			</div>
 			{#if palette.length === 0}
@@ -166,6 +184,7 @@
 			{@const opt = optionOf(col.optionId)}
 			{@const total = totalNights(col.items)}
 			{@const dates = datesFor(col.items)}
+			{@const missing = missingMust(col.items)}
 			<section class="column route" class:chosen={opt?.isChosen}>
 				{#if opt}
 					<header>
@@ -187,6 +206,11 @@
 							{total} / {tripNights} nights
 							{#if total < tripNights}· {tripNights - total} to place{:else if total > tripNights}· {total - tripNights} too many{:else}✓{/if}
 						</div>
+						{#if missing.length}
+							<div class="small missing" title="Must cities not in this route">
+								Missing: {missing.map((c) => placeName(c.placeId)).join(', ')}
+							</div>
+						{/if}
 					</header>
 
 					<div
@@ -417,6 +441,24 @@
 		min-height: 3rem;
 		overflow-y: auto;
 		padding: 2px;
+	}
+	.missing {
+		color: var(--accent);
+	}
+	.chip {
+		display: flex;
+		gap: 0.4rem;
+		align-items: center;
+	}
+	.chip.must {
+		border-left: 3px solid var(--focus);
+	}
+	.chip.maybe {
+		border-left: 3px solid var(--maybe);
+	}
+	.chip .tag {
+		color: var(--muted);
+		white-space: nowrap;
 	}
 	.palette .zone {
 		gap: 0.3rem;

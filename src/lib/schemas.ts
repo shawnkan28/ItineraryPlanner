@@ -78,8 +78,28 @@ export const routeStopSchema = z.object({
 	operator: opt
 });
 
+/** Nights wanted for a shortlisted city: a minimum and an optional maximum ("1–2"). */
+export const cityNightsSchema = z
+	.object({
+		nightsMin: z.coerce.number().int().min(0).max(60).default(1),
+		nightsMax: z
+			.string()
+			.optional()
+			.transform((v) => (v === undefined || v === '' ? null : Number(v)))
+			.pipe(z.number().int().min(0).max(60).nullable()),
+		notes: opt
+	})
+	.transform((v) => ({ ...v, nightsMax: v.nightsMax !== null && v.nightsMax > v.nightsMin ? v.nightsMax : null }));
+
+export const tripCitySchema = z
+	.object({
+		placeName: req,
+		priority: z.enum(['must', 'maybe', 'skip']).default('maybe')
+	})
+	.and(cityNightsSchema);
+
 export const ideaSchema = z.object({
-	baseId: optInt,
+	cityId: optInt,
 	placeName: opt,
 	title: req,
 	details: opt,
