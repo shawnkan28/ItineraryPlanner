@@ -124,6 +124,8 @@
 			<button type="button" class="ghost close" aria-label="Close" onclick={onclose}>✕</button>
 		</header>
 
+		<div class="body stack">
+
 		{#if city}
 			<div class="city-meta">
 				<form method="POST" action="?/updateCity" use:enhance={keep} class="why">
@@ -275,6 +277,8 @@
 			{/each}
 		</div>
 
+		</div>
+
 		{#if city}
 			<footer class="foot">
 				<form
@@ -319,21 +323,34 @@
 		inset: 0;
 		z-index: 1000;
 		background: rgb(0 0 0 / 0.45);
-		overflow-y: auto;
+		overflow: hidden;
 		padding: clamp(0.75rem, 5vw, 4rem) clamp(0.75rem, 6vw, 6rem);
 	}
-	/* nearly full screen: the city's ideas get the window, with a margin around it */
+	/*
+	 * Nearly full screen with a margin around it. Title and footer stay put; only the body
+	 * (city details, add bar, idea columns) scrolls.
+	 */
 	.modal {
 		box-sizing: border-box;
-		min-height: 100%;
+		height: 100%;
+		overflow: hidden;
 		box-shadow: 0 20px 50px rgb(0 0 0 / 0.25);
 		background: var(--surface);
 		display: flex;
 		flex-direction: column;
 		padding: 1rem clamp(1rem, 3vw, 2rem);
 	}
-	.cols {
+	.body {
 		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
+		margin-right: -0.5rem;
+		padding-right: 0.5rem;
+	}
+	.cols {
+		flex: 1 0 auto;
 	}
 	.col {
 		align-self: stretch;
@@ -344,10 +361,8 @@
 		flex: 1;
 	}
 	.foot {
-		position: sticky;
-		bottom: 0;
-		background: var(--surface);
-		padding-top: 0.5rem;
+		flex: none;
+		padding-top: 0.6rem;
 		border-top: 1px solid var(--border);
 	}
 	.head {
