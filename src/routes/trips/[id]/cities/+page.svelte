@@ -113,6 +113,7 @@
 		ideas={data.ideas}
 		places={data.places}
 		days={data.days}
+		error={form && 'error' in form ? (form.error as string) : null}
 		onclose={() => (openCity = null)}
 	/>
 {/if}

@@ -1,7 +1,8 @@
 import { fail } from '@sveltejs/kit';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { db, t } from '#lib/server/db/index.ts';
 import { resolvePlace, tripId } from '#lib/server/repo.ts';
+import { similarPlace } from '#lib/similar.ts';
 import { cityNightsSchema, cityNotesSchema, decisionSchema, ideaSchema, parseForm, tripCitySchema } from '#lib/schemas.ts';
 
 export const load = ({ params }) => {
@@ -34,6 +35,19 @@ const ownIdea = (trip: number, id: number) =>
 	db.select().from(t.idea).where(and(eq(t.idea.id, id), eq(t.idea.tripId, trip))).get();
 const ownDecision = (trip: number, id: number) =>
 	db.select().from(t.decision).where(and(eq(t.decision.id, id), eq(t.decision.tripId, trip))).get();
+/** An idea in the same city (or both unassigned) that is the same place; a city can't have it twice. */
+function sameCityClash(trip: number, cityId: number | null, name: string, exceptId: number | null = null) {
+	return db
+		.select({ id: t.idea.id, title: t.idea.title, place: t.place.name })
+		.from(t.idea)
+		.leftJoin(t.place, eq(t.place.id, t.idea.placeId))
+		.where(and(eq(t.idea.tripId, trip), cityId === null ? isNull(t.idea.cityId) : eq(t.idea.cityId, cityId)))
+		.all()
+		.find((i) => i.id !== exceptId && similarPlace(name, i.place ?? i.title));
+}
+const clashError = (c: { title: string; place: string | null }) =>
+	`${c.place ?? c.title} is already in this city`;
+
 /** Only file an idea under a city of this trip. */
 const cityOrNull = (trip: number, cityId: number | null) => (cityId !== null && ownCity(trip, cityId) ? cityId : null);
 
@@ -94,14 +108,17 @@ export const actions = {
 		const id = tripId(params);
 		const parsed = parseForm(ideaSchema, await request.formData());
 		if (!parsed.ok) return fail(400, { error: Object.values(parsed.errors).join(', ') });
-		const { placeName, cityId, ...rest } = parsed.data;
+		const { placeName, ...rest } = parsed.data;
+		const cityId = cityOrNull(id, parsed.data.cityId);
+		const clash = sameCityClash(id, cityId, placeName);
+		if (clash) return fail(400, { error: clashError(clash) });
 		const max = db
 			.select({ n: sql<number>`coalesce(max(position), -1)` })
 			.from(t.idea)
 			.where(eq(t.idea.tripId, id))
 			.get()!.n;
 		db.insert(t.idea)
-			.values({ ...rest, title: placeName, tripId: id, cityId: cityOrNull(id, cityId), placeId: resolvePlace(placeName), position: max + 1 })
+			.values({ ...rest, title: placeName, tripId: id, cityId, placeId: resolvePlace(placeName), position: max + 1 })
 			.run();
 	},
 	updateIdea: async ({ params, request }) => {
@@ -111,9 +128,12 @@ export const actions = {
 		if (!idea) return fail(404);
 		const parsed = parseForm(ideaSchema, f);
 		if (!parsed.ok) return fail(400, { error: Object.values(parsed.errors).join(', ') });
-		const { placeName, cityId, ...rest } = parsed.data;
+		const { placeName, ...rest } = parsed.data;
+		const cityId = cityOrNull(id, parsed.data.cityId);
+		const clash = sameCityClash(id, cityId, placeName, idea.id);
+		if (clash) return fail(400, { error: clashError(clash) });
 		db.update(t.idea)
-			.set({ ...rest, title: placeName, cityId: cityOrNull(id, cityId), placeId: resolvePlace(placeName) })
+			.set({ ...rest, title: placeName, cityId, placeId: resolvePlace(placeName) })
 			.where(eq(t.idea.id, idea.id))
 			.run();
 	},

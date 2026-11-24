@@ -22,6 +22,7 @@
 		ideas,
 		places,
 		days,
+		error = null,
 		onclose
 	}: {
 		tripId: number;
@@ -30,6 +31,8 @@
 		ideas: Idea[];
 		places: P[];
 		days: Day[];
+		/** Server-side refusal (e.g. the place is already in this city). */
+		error?: string | null;
 		onclose: () => void;
 	} = $props();
 
@@ -54,8 +57,15 @@
 	};
 	const similarTo = (name: string, except: number | null = null) =>
 		name.trim().length < 3 ? [] : ideas.filter((i) => i.id !== except && similarPlace(name, ideaName(i)));
+	// Same place twice in one city is blocked; similar places in other cities only warn.
+	const inCity = (i: Idea, cityId: number | null) => i.cityId === cityId;
 	const addMatches = $derived(similarTo(addPlace));
+	const addClash = $derived(addMatches.find((i) => inCity(i, city?.id ?? null)));
+	const addOthers = $derived(addMatches.filter((i) => !inCity(i, city?.id ?? null)));
+	let editCity: number | null = $state(null);
 	const editMatches = $derived(editing === null ? [] : similarTo(editPlace, editing));
+	const editClash = $derived(editMatches.find((i) => inCity(i, editCity)));
+	const editOthers = $derived(editMatches.filter((i) => !inCity(i, editCity)));
 	/** Ideas that look like another idea on the trip get a yellow highlight. */
 	const dupesOf = (i: Idea) => similarTo(ideaName(i), i.id);
 	const typed = (e: Event) => (e.target as HTMLInputElement).value;
@@ -148,9 +158,12 @@
 				<PlaceInput name="placeName" {places} placeholder="Place, e.g. Kuromon Market" required />
 			</div>
 			<input class="notes" name="details" placeholder="Notes: what to do or see there" aria-label="Notes" />
-			{#if addMatches.length}
-				{@render similarNote(addMatches)}
+			{#if addClash}
+				{@render clashNote(addClash)}
+			{:else if addOthers.length}
+				{@render similarNote(addOthers)}
 			{/if}
+			{#if error}<p class="clash small" role="alert">{error}</p>{/if}
 			<div class="seg" role="radiogroup" aria-label="Priority">
 				{#each PRIORITIES as p (p.key)}
 					<button type="button" role="radio" aria-checked={addPriority === p.key} class:on={addPriority === p.key} onclick={() => (addPriority = p.key)}>
@@ -158,7 +171,7 @@
 					</button>
 				{/each}
 			</div>
-			<button class="primary">Add</button>
+			<button class="primary" disabled={!!addClash}>Add</button>
 		</form>
 
 		<div class="cols">
@@ -182,6 +195,7 @@
 									<button type="button" class="sm ghost" aria-expanded={editing === idea.id} onclick={() => {
 											editing = editing === idea.id ? null : idea.id;
 											editPlace = ideaName(idea);
+											editCity = idea.cityId;
 										}}>
 										{editing === idea.id ? 'Close' : 'Edit'}
 									</button>
@@ -210,8 +224,10 @@
 										<div oninput={(e) => (editPlace = typed(e))}>
 											<label>Place <PlaceInput name="placeName" value={ideaName(idea)} {places} required /></label>
 										</div>
-										{#if editMatches.length}
-											{@render similarNote(editMatches)}
+										{#if editClash}
+											{@render clashNote(editClash)}
+										{:else if editOthers.length}
+											{@render similarNote(editOthers)}
 										{/if}
 										<label>Notes <textarea name="details" rows="2" placeholder="What to do or see there" value={idea.details ?? ''}></textarea></label>
 										<div class="pair">
@@ -223,7 +239,11 @@
 											</label>
 											<label>
 												City
-												<select name="cityId" value={String(idea.cityId ?? '')}>
+												<select
+													name="cityId"
+													value={String(idea.cityId ?? '')}
+													onchange={(e) => (editCity = e.currentTarget.value ? Number(e.currentTarget.value) : null)}
+												>
 													{#each cities as c (c.id)}
 														<option value={String(c.id)}>{placeName(c.placeId)}{c.priority === 'skip' ? ' (skipped)' : ''}</option>
 													{/each}
@@ -233,7 +253,7 @@
 										</div>
 										<input name="reason" value={idea.reason ?? ''} placeholder="Why (or why not)" aria-label="Reason" />
 										<div class="row">
-											<button class="sm primary">Save</button>
+											<button class="sm primary" disabled={!!editClash}>Save</button>
 											<button class="sm danger ghost" formaction="?/deleteIdea">Delete</button>
 										</div>
 									</form>
@@ -276,6 +296,12 @@
 		{/if}
 	</div>
 </div>
+
+{#snippet clashNote(m: Idea)}
+	<div class="clash small" role="alert">
+		<strong>{ideaName(m)}</strong> is already in {cityLabel(m.cityId)}. Edit that one instead.
+	</div>
+{/snippet}
 
 {#snippet similarNote(matches: Idea[])}
 	<div class="similar small" role="status">
@@ -386,8 +412,21 @@
 	.add .notes {
 		grid-area: notes;
 	}
-	.add .similar {
+	.add .similar,
+	.add .clash {
 		grid-column: 1 / -1;
+	}
+	.modal button:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
+	}
+	.clash {
+		margin: 0;
+		padding: 0.4rem 0.6rem;
+		border-radius: 7px;
+		background: var(--accent-soft);
+		color: var(--text);
+		border: 1px solid var(--accent);
 	}
 	.similar {
 		padding: 0.4rem 0.6rem;
