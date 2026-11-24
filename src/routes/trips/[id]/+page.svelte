@@ -74,7 +74,7 @@
 					{/each}
 				</ul>
 			{/if}
-			<a href="/trips/{trip.id}/ideas">Ideas & decisions →</a>
+			<a href="/trips/{trip.id}/cities">Cities, ideas & decisions →</a>
 		</section>
 	</div>
 

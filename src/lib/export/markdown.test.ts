@@ -75,8 +75,8 @@ function fixture(): TripBundle {
 			{ id: 1, tripId: 1, question: 'Is anyone willing to drive?', options: [{ label: 'Rent a car' }, { label: 'Buses only' }], answer: null, notes: null, status: 'open' }
 		],
 		ideas: [
-			{ id: 1, tripId: 1, baseId: 11, cityId: null, placeId: 4, position: 0, title: 'Ferry terminal museum', details: null, status: 'dropped', reason: 'too far out of the way' },
-			{ id: 2, tripId: 1, baseId: 11, cityId: null, placeId: null, position: 1, title: 'Yufuin', details: null, status: 'parked', reason: null }
+			{ id: 1, tripId: 1, baseId: 11, cityId: null, priority: 'maybe', placeId: 4, position: 0, title: 'Ferry terminal museum', details: null, status: 'dropped', reason: 'too far out of the way' },
+			{ id: 2, tripId: 1, baseId: 11, cityId: null, priority: 'maybe', placeId: null, position: 1, title: 'Yufuin', details: null, status: 'parked', reason: null }
 		]
 	};
 }

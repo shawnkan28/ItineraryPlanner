@@ -19,7 +19,7 @@ export const load = ({ params }) => {
 		fullDays: b.days,
 		stays: b.stays,
 		decisions: b.decisions.filter((d) => d.status === 'open'),
-		dropped: b.ideas.filter((i) => i.status === 'dropped' || i.status === 'parked'),
+		dropped: b.ideas.filter((i) => i.priority === 'skip' || i.status === 'dropped' || i.status === 'parked'),
 		itemCount,
 		journaled: [...journaled]
 	};

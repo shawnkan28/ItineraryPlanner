@@ -151,6 +151,8 @@ export const idea = sqliteTable('idea', {
 	title: text('title').notNull(),
 	details: text('details'),
 	status: text('status').$type<IdeaStatus>().notNull().default('idea'),
+	/** Must / Maybe / Skip within its city. Skip counts as dropped in the export. */
+	priority: text('priority').$type<CityPriority>().notNull().default('maybe'),
 	reason: text('reason')
 });
 

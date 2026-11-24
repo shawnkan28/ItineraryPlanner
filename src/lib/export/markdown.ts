@@ -409,12 +409,13 @@ export function renderOverview(b: TripBundle): string {
 	if (lines[lines.length - 1] === '>') lines.pop();
 
 	// Dropped / parked
-	const dropped = b.ideas.filter((i) => i.status === 'dropped' || i.status === 'parked');
+	// Skip (in a city's ideas) is how ideas are dropped now; status 'dropped' is the older way
+	const dropped = b.ideas.filter((i) => i.priority === 'skip' || i.status === 'dropped' || i.status === 'parked');
 	if (dropped.length) {
 		lines.push('', '---', '### Dropped / parked');
 		for (const i of dropped) {
 			const what = i.placeId ? placeLink(b, i.placeId, i.title) : i.title;
-			const label = i.status === 'dropped' ? 'Dropped' : 'Parked (no day yet)';
+			const label = i.status === 'parked' ? 'Parked (no day yet)' : 'Dropped';
 			lines.push(`- ${label}: ${what}${i.reason ? ` (${i.reason})` : ''}`);
 		}
 	}

@@ -20,7 +20,7 @@
 <svelte:head><title>Itinerary · {data.trip.name}</title></svelte:head>
 
 <main class="stack">
-	<h2>Phase 4 · Itinerary</h2>
+	<h2>Phase 3 · Itinerary</h2>
 
 	{#if data.decisions.length}
 		<section class="card callout question">
@@ -39,7 +39,7 @@
 			<a class="small" href="{base}/route">Edit route →</a>
 		</div>
 		{#if data.bases.length === 0}
-			<p class="empty">No route chosen. <a href="{base}/route">Pick one in Phase 3.</a></p>
+			<p class="empty">No route chosen. <a href="{base}/route">Pick one in Phase 2.</a></p>
 		{:else}
 			<div class="table-wrap">
 				<table>
@@ -116,12 +116,12 @@
 		<section class="stack">
 			<div class="spread">
 				<h3>Dropped / parked</h3>
-				<a class="small" href="{base}/ideas">Ideas board →</a>
+				<a class="small" href="{base}/cities">Cities &amp; ideas →</a>
 			</div>
 			<ul class="card dropped">
 				{#each data.dropped as i (i.id)}
 					<li>
-						<span class="badge {i.status === 'dropped' ? '' : 'amber'}">{i.status === 'dropped' ? 'Dropped' : 'Parked'}</span>
+						<span class="badge {i.status === 'parked' ? 'amber' : ''}">{i.status === 'parked' ? 'Parked' : 'Dropped'}</span>
 						{i.placeId ? placeName(i.placeId) : i.title}
 						{#if i.reason}<span class="muted">({i.reason})</span>{/if}
 					</li>

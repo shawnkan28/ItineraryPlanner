@@ -8,8 +8,8 @@ const body = z.discriminatedUnion('kind', [
 	z.object({
 		kind: z.literal('ideas'),
 		tripId: z.number().int(),
-		/** One column per shortlisted city (cityId) plus Unassigned (null). */
-		columns: z.array(z.object({ cityId: z.number().int().nullable(), ids: z.array(z.number().int()) }))
+		/** Ideas of one city, in Must / Maybe / Skip columns (moving to another city is a dropdown). */
+		columns: z.array(z.object({ priority: z.enum(['must', 'maybe', 'skip']), ids: z.array(z.number().int()) }))
 	}),
 	z.object({
 		kind: z.literal('stops'),
@@ -51,15 +51,10 @@ export const POST = async ({ request, locals }) => {
 			? db.select({ id: t.idea.id, tripId: t.idea.tripId }).from(t.idea).where(inArray(t.idea.id, ids)).all()
 			: [];
 		if (own.some((i) => i.tripId !== b.tripId) || own.length !== ids.length) error(403, 'Not your ideas');
-		const cityIds = b.columns.flatMap((c) => (c.cityId === null ? [] : [c.cityId]));
-		const cities = cityIds.length
-			? db.select({ id: t.tripCity.id, tripId: t.tripCity.tripId }).from(t.tripCity).where(inArray(t.tripCity.id, cityIds)).all()
-			: [];
-		if (cities.some((c) => c.tripId !== b.tripId) || cities.length !== new Set(cityIds).size) error(403, 'Not your cities');
 		db.transaction((tx) => {
 			for (const col of b.columns)
 				col.ids.forEach((id, position) =>
-					tx.update(t.idea).set({ position, cityId: col.cityId }).where(eq(t.idea.id, id)).run()
+					tx.update(t.idea).set({ position, priority: col.priority }).where(eq(t.idea.id, id)).run()
 				);
 		});
 		return json({ ok: true });

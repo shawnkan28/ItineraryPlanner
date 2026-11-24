@@ -107,6 +107,7 @@ export const ideaSchema = z.object({
 	title: req,
 	details: opt,
 	status: z.enum(['idea', 'planned', 'dropped', 'parked']).default('idea'),
+	priority: z.enum(['must', 'maybe', 'skip']).default('maybe'),
 	reason: opt
 });
 

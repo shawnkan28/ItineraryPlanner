@@ -1,27 +1,29 @@
 <script lang="ts">
 	/**
-	 * Phase 1: which cities you want to visit. What to do there and how long to stay come next (Ideas).
-	 * Three columns (Must / Maybe / Skip); drag a card to change its priority.
+	 * Phase 1: which cities you want to visit. Three columns (Must / Maybe / Skip); drag a card to
+	 * change its priority. Each card opens the city's ideas and nights (CityIdeas).
 	 */
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { dndzone, type DndEvent } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
 	import PlaceInput from '#lib/components/PlaceInput.svelte';
-	import type { CityPriority, TripCity } from '#lib/server/db/schema.ts';
+	import type { CityPriority, Idea, TripCity } from '#lib/server/db/schema.ts';
 
 	type P = { id: number; name: string; level: string; aliases: string[] };
 	let {
 		tripId,
 		cities,
 		places,
-		ideaCounts = {},
+		ideas,
+		onopen,
 		errors = null
 	}: {
 		tripId: number;
 		cities: TripCity[];
 		places: P[];
-		ideaCounts?: Record<number, number>;
+		ideas: Idea[];
+		onopen: (cityId: number) => void;
 		errors?: Record<string, string> | null;
 	} = $props();
 
@@ -34,7 +36,12 @@
 	let columns = $derived(
 		PRIORITIES.map((p) => ({ priority: p.key, items: cities.filter((c) => c.priority === p.key) }))
 	);
-	let editing: number | null = $state(null);
+	const nightsText = (c: TripCity) =>
+		c.nightsMax ? `${c.nightsMin}–${c.nightsMax} nights` : `${c.nightsMin} ${c.nightsMin === 1 ? 'night' : 'nights'}`;
+	const countsFor = (cityId: number) => {
+		const list = ideas.filter((i) => i.cityId === cityId);
+		return { must: list.filter((i) => i.priority === 'must').length, maybe: list.filter((i) => i.priority === 'maybe').length, all: list.length };
+	};
 	const flipDurationMs = 150;
 
 	function consider(ci: number, e: CustomEvent<DndEvent<TripCity>>) {
@@ -86,45 +93,23 @@
 				</header>
 				<div
 					class="zone"
-					use:dndzone={{ items: col.items, flipDurationMs, type: 'city', dropTargetStyle: {}, dragDisabled: editing !== null }}
+					use:dndzone={{ items: col.items, flipDurationMs, type: 'city', dropTargetStyle: {}, }}
 					onconsider={(e) => consider(ci, e)}
 					onfinalize={(e) => finalize(ci, e)}
 				>
 					{#each col.items as c (c.id)}
+						{@const n = countsFor(c.id)}
 						<article class="card city-card" animate:flip={{ duration: flipDurationMs }}>
-							<strong>{placeName(c.placeId)}</strong>
+							<div class="spread top">
+								<strong class="grow">{placeName(c.placeId)}</strong>
+								{#if c.priority !== 'skip'}<span class="badge">{nightsText(c)}</span>{/if}
+							</div>
 							{#if c.notes}<p class="small notes">{c.notes}</p>{/if}
-							{#if editing === c.id}
-								<form
-									method="POST"
-									action="?/updateCity"
-									use:enhance={() => async ({ update, result }) => {
-										await update({ reset: false });
-										if (result.type === 'success') editing = null;
-									}}
-									class="stack edit"
-								>
-									<input type="hidden" name="cityId" value={c.id} />
-									<label>
-										{c.priority === 'skip' ? 'Why not' : 'Why'}
-										<textarea name="notes" rows="2" value={c.notes ?? ''}></textarea>
-									</label>
-									<div class="row">
-										<button class="primary sm">Save</button>
-										<button type="button" class="sm" onclick={() => (editing = null)}>Cancel</button>
-										<button class="sm danger ghost" formaction="?/deleteCity">Remove</button>
-									</div>
-								</form>
-							{/if}
 							<footer class="foot">
-								{#if c.priority !== 'skip'}
-									<a class="small" href="/trips/{tripId}/ideas#city-{c.id}">
-										{ideaCounts[c.id] ? `${ideaCounts[c.id]} ${ideaCounts[c.id] === 1 ? 'idea' : 'ideas'}` : 'Add ideas'} →
-									</a>
-								{/if}
-								<button type="button" class="sm" class:open={editing === c.id} onclick={() => (editing = editing === c.id ? null : c.id)}>
-									{editing === c.id ? 'Close' : 'Edit'}
-								</button>
+								<span class="small muted">
+									{#if n.all === 0}No ideas yet{:else}{n.must} must · {n.maybe} maybe{/if}
+								</span>
+								<button type="button" class="sm" onclick={() => onopen(c.id)}>Ideas{n.all ? ` (${n.all})` : ''}</button>
 							</footer>
 						</article>
 					{/each}
@@ -209,8 +194,9 @@
 		white-space: pre-wrap;
 		color: var(--muted);
 	}
-	.edit {
-		margin-top: 0.5rem;
+	.top {
+		flex-wrap: nowrap;
+		gap: 0.4rem;
 	}
 	.foot {
 		display: flex;
@@ -218,12 +204,6 @@
 		align-items: center;
 		gap: 0.5rem;
 		margin-top: 0.4rem;
-	}
-	.foot button {
-		margin-left: auto;
-	}
-	.foot button.open {
-		background: var(--surface-2);
 	}
 	.hint {
 		margin: -2.6rem 0 0;
