@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
 import { addDays, daysBetween } from '#lib/dates.ts';
+import { overnightStayNote, shortName, stopTitle } from '#lib/route.ts';
 import type { TripBundle } from '#lib/export/types.ts';
 import { db, t } from './db';
 import type { PlaceLevel } from './db/schema';
@@ -154,11 +155,17 @@ export function chooseRoute(tripId: number, routeOptionId: number) {
 			(s) => s.startDate && s.startDate <= d.date && d.date < addDays(s.startDate, Math.max(s.nights, 1))
 		);
 		if (!stop) continue;
-		const label = stop.label ?? (stop.placeId ? places.get(stop.placeId)?.name.replace(/ City$/, '') : null);
+		const next = stops[stops.indexOf(stop) + 1];
+		const nameOf = (id: number | null) => (id ? places.get(id)?.name : null);
+		const title = stopTitle(stop, next, nameOf);
+		const label = stop.label || stop.kind === 'overnight_transport' ? title : (title && shortName(title));
+		// Overnight transport: no hotel that night, say what you sleep on instead.
+		const overnight = !d.stayId ? overnightStayNote(stop) : null;
 		db.update(t.day)
 			.set({
 				titlePlaceId: d.titlePlaceId ?? stop.placeId,
-				baseLabel: d.baseLabel ?? label ?? null
+				baseLabel: d.baseLabel ?? (label || null),
+				stayNote: d.stayNote ?? overnight
 			})
 			.where(eq(t.day.id, d.id))
 			.run();

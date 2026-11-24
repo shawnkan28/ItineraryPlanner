@@ -40,10 +40,10 @@
 	const flipDurationMs = 150;
 
 	function consider(si: number, e: CustomEvent<DndEvent<PlanItem>>) {
-		sections[si].items = e.detail.items;
+		sections = sections.map((s, i) => (i === si ? { ...s, items: e.detail.items } : s));
 	}
 	async function finalize(si: number, e: CustomEvent<DndEvent<PlanItem>>) {
-		sections[si].items = e.detail.items;
+		sections = sections.map((s, i) => (i === si ? { ...s, items: e.detail.items } : s));
 		await fetch('/api/reorder', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },

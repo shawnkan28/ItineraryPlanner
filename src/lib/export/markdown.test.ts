@@ -39,8 +39,8 @@ function fixture(): TripBundle {
 		},
 		places,
 		bases: [
-			{ id: 10, routeOptionId: 1, position: 0, placeId: null, label: 'Osaka → Beppu', nights: 1, startDate: '2027-03-12', kind: 'overnight_transport' },
-			{ id: 11, routeOptionId: 1, position: 1, placeId: 1, label: null, nights: 2, startDate: '2027-03-13', kind: 'stay' }
+			{ id: 10, routeOptionId: 1, position: 0, placeId: 5, label: null, nights: 1, startDate: '2027-03-12', kind: 'overnight_transport', transportMode: 'ferry', operator: 'MOL Sunflower' },
+			{ id: 11, routeOptionId: 1, position: 1, placeId: 1, label: null, nights: 2, startDate: '2027-03-13', kind: 'stay', transportMode: null, operator: null }
 		],
 		days: [
 			{ id: 1, tripId: 1, dayNumber: 1, date: '2027-03-12', titlePlaceId: 5, baseLabel: 'Ferry', summary: 'Osaka, then the night ferry', stayId: null, stayNote: 'Overnight ferry (MOL Sunflower)', createdBy: 1, updatedBy: 1 },
@@ -288,6 +288,12 @@ Overview of the final plan. Each day's plan is in its day note.
 `);
 	});
 
+	it('uses a typed label for overnight transport over the generated one', () => {
+		const b2 = fixture();
+		b2.bases[0].label = 'Sunflower ferry';
+		expect(renderOverview(b2)).toContain('| Sunflower ferry | 1 | 12/Mar |');
+	});
+
 	it('omits still to decide with no open decisions', () => {
 		const b2 = fixture();
 		b2.decisions[0].status = 'decided';
@@ -304,5 +310,27 @@ describe('buildExport', () => {
 			'Travel/05-journals/2027-03 Japan Trip/2027-03-14 Japan Trip Day 03.md',
 			'Travel/06-travel_notes/2027-03 Trip - Itinerary.md'
 		]);
+	});
+});
+
+describe('route stop titles', async () => {
+	const { stopTitle, overnightStayNote } = await import('../route.ts');
+	const names: Record<number, string> = { 1: 'Osaka City', 2: 'Beppu City' };
+	const nameOf = (id: number | null) => (id ? names[id] : null);
+	const ferry = { placeId: 1, label: null, kind: 'overnight_transport' as const, transportMode: 'ferry' as const, operator: 'MOL Sunflower' };
+	const beppu = { placeId: 2, label: null, kind: 'stay' as const, transportMode: null, operator: null };
+
+	it('names overnight transport after where it goes', () => {
+		expect(stopTitle(ferry, beppu, nameOf)).toBe('Osaka → Beppu');
+		expect(stopTitle(ferry, null, nameOf)).toBe('Osaka →');
+		expect(stopTitle({ ...ferry, placeId: null }, beppu, nameOf)).toBe('Overnight transport');
+	});
+	it('keeps the city for normal stays', () => {
+		expect(stopTitle(beppu, null, nameOf)).toBe('Beppu City');
+	});
+	it('builds the stay note', () => {
+		expect(overnightStayNote(ferry)).toBe('Overnight ferry (MOL Sunflower)');
+		expect(overnightStayNote({ ...ferry, operator: null, transportMode: 'bus' })).toBe('Overnight bus');
+		expect(overnightStayNote(beppu)).toBeNull();
 	});
 });

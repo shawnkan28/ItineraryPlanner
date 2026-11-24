@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { stopTitle } from '#lib/route.ts';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { dndzone, type DndEvent } from 'svelte-dnd-action';
@@ -12,6 +13,8 @@
 
 	let { data, form } = $props();
 	const placeName = (id: number | null) => data.places.find((p) => p.id === id)?.name ?? '';
+	const baseName = (b: (typeof data.bases)[number]) =>
+		stopTitle(b, data.bases[data.bases.indexOf(b) + 1], (id) => placeName(id) || null);
 	const flipDurationMs = 150;
 
 	type Column = { baseId: number | null; title: string; sub: string; items: Idea[] };
@@ -19,7 +22,7 @@
 	function buildColumns(): Column[] {
 		const cols: Column[] = data.bases.map((b) => ({
 			baseId: b.id,
-			title: b.label || placeName(b.placeId) || 'Base',
+			title: baseName(b) || 'Base',
 			sub: `${b.nights} ${b.nights === 1 ? 'night' : 'nights'}${b.startDate ? ` · ${niceDate(b.startDate)}` : ''}`,
 			items: data.ideas.filter((i) => i.baseId === b.id)
 		}));
@@ -37,10 +40,10 @@
 	let showHidden = $state(true);
 
 	function consider(col: number, e: CustomEvent<DndEvent<Idea>>) {
-		columns[col].items = e.detail.items;
+		columns = columns.map((c, i) => (i === col ? { ...c, items: e.detail.items } : c));
 	}
 	async function finalize(col: number, e: CustomEvent<DndEvent<Idea>>) {
-		columns[col].items = e.detail.items;
+		columns = columns.map((c, i) => (i === col ? { ...c, items: e.detail.items } : c));
 		await fetch('/api/reorder', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },

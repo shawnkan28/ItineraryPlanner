@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { stopTitle } from '#lib/route.ts';
 	import { enhance } from '$app/forms';
 	import { addDays, ddMonRange, dddDd } from '#lib/dates.ts';
 	import { keep } from '#lib/forms.ts';
@@ -8,6 +9,8 @@
 	let { data } = $props();
 	const base = $derived(`/trips/${data.trip.id}`);
 	const placeName = (id: number | null) => data.places.find((p) => p.id === id)?.name ?? '';
+	const baseName = (b: (typeof data.bases)[number]) =>
+		stopTitle(b, data.bases[data.bases.indexOf(b) + 1], (id) => placeName(id) || null);
 	const range = (start: string | null, nights: number) =>
 		start ? ddMonRange(start, addDays(start, Math.max(nights, 1) - 1)) : '';
 	const stayName = (id: number | null) => data.stays.find((s) => s.id === id)?.hotel ?? '';
@@ -44,7 +47,7 @@
 					<tbody>
 						{#each data.bases as b (b.id)}
 							<tr>
-								<td>{b.label || placeName(b.placeId)}</td>
+								<td>{baseName(b)}</td>
 								<td>{b.nights}</td>
 								<td class="nowrap">{range(b.startDate, b.nights)}</td>
 							</tr>

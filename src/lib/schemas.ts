@@ -70,7 +70,12 @@ export const routeStopSchema = z.object({
 	placeName: opt,
 	label: opt,
 	nights: z.coerce.number().int().min(0).default(1),
-	kind: z.enum(['stay', 'overnight_transport', 'depart']).default('stay')
+	kind: z.enum(['stay', 'overnight_transport', 'depart']).default('stay'),
+	transportMode: z
+		.enum(['ferry', 'bus', 'train', 'flight', ''])
+		.optional()
+		.transform((v) => v || null),
+	operator: opt
 });
 
 export const ideaSchema = z.object({

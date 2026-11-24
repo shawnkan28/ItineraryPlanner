@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { stopTitle } from '#lib/route.ts';
 	import { enhance } from '$app/forms';
 	import { addDays, ddMonRange } from '#lib/dates.ts';
 	import { formatMoney, fromMinor, sumByCurrency } from '#lib/money.ts';
@@ -8,13 +9,15 @@
 
 	let { data, form } = $props();
 	const placeName = (id: number | null) => data.places.find((p) => p.id === id)?.name ?? '';
+	const baseName = (b: (typeof data.bases)[number]) =>
+		stopTitle(b, data.bases[data.bases.indexOf(b) + 1], (id) => placeName(id) || null);
 	let editing: number | 'new' | null = $state(null);
 	let newBase: number | null = $state(null);
 
 	const groups = $derived([
 		...data.bases.map((b) => ({
 			base: b,
-			title: b.label || placeName(b.placeId) || 'Base',
+			title: baseName(b) || 'Base',
 			range: b.startDate ? ddMonRange(b.startDate, addDays(b.startDate, Math.max(b.nights, 1) - 1)) : '',
 			stays: data.stays.filter((s) => s.baseId === b.id)
 		})),
@@ -110,7 +113,7 @@
 			Base
 			<select name="baseId" value={String(s?.baseId ?? baseId ?? '')}>
 				<option value="">—</option>
-				{#each data.bases as b (b.id)}<option value={String(b.id)}>{b.label || placeName(b.placeId)}</option>{/each}
+				{#each data.bases as b (b.id)}<option value={String(b.id)}>{baseName(b)}</option>{/each}
 			</select>
 		</label>
 		<label>

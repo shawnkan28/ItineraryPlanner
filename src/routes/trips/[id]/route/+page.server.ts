@@ -3,6 +3,7 @@ import { and, asc, eq, sql } from 'drizzle-orm';
 import { db, t } from '#lib/server/db/index.ts';
 import { chooseRoute, dateStops, resolvePlace, stopsOf, tripId } from '#lib/server/repo.ts';
 import { parseForm, routeStopSchema } from '#lib/schemas.ts';
+import type { StopKind, TransportMode } from '#lib/server/db/schema.ts';
 
 export const load = ({ params }) => {
 	const id = tripId(params);
@@ -32,6 +33,16 @@ function stopWithOption(tripId: number, stopId: number) {
 
 const num = (f: FormData, k: string) => Number(f.get(k));
 
+/** Transport details only make sense for overnight transport; clear them for other kinds. */
+function kindFields(d: { kind: StopKind; transportMode: TransportMode | null; operator: string | null }) {
+	const overnight = d.kind === 'overnight_transport';
+	return {
+		kind: d.kind,
+		transportMode: overnight ? (d.transportMode ?? 'ferry') : null,
+		operator: overnight ? d.operator : null
+	};
+}
+
 export const actions = {
 	addOption: async ({ params, request }) => {
 		const id = tripId(params);
@@ -53,7 +64,9 @@ export const actions = {
 						placeId: s.placeId,
 						label: s.label,
 						nights: s.nights,
-						kind: s.kind
+						kind: s.kind,
+						transportMode: s.transportMode,
+						operator: s.operator
 					})
 					.run();
 			}
@@ -106,7 +119,7 @@ export const actions = {
 				placeId: resolvePlace(parsed.data.placeName, 'city'),
 				label: parsed.data.label,
 				nights: parsed.data.nights,
-				kind: parsed.data.kind
+				...kindFields(parsed.data)
 			})
 			.run();
 		if (opt.isChosen) dateStops(id, opt.id);
@@ -123,10 +136,21 @@ export const actions = {
 				placeId: resolvePlace(parsed.data.placeName, 'city'),
 				label: parsed.data.label,
 				nights: parsed.data.nights,
-				kind: parsed.data.kind
+				...kindFields(parsed.data)
 			})
 			.where(eq(t.routeStop.id, stop.id))
 			.run();
+		dateStops(id, stop.routeOptionId);
+	},
+	/** Inline nights stepper on a card. */
+	setNights: async ({ params, request }) => {
+		const id = tripId(params);
+		const f = await request.formData();
+		const stop = stopWithOption(id, num(f, 'stopId'));
+		if (!stop) return fail(404);
+		const nights = Math.max(0, Math.min(60, Math.trunc(num(f, 'nights'))));
+		if (!Number.isFinite(nights)) return fail(400);
+		db.update(t.routeStop).set({ nights }).where(eq(t.routeStop.id, stop.id)).run();
 		dateStops(id, stop.routeOptionId);
 	},
 	moveStop: async ({ params, request }) => {

@@ -2,12 +2,26 @@ import { error, json } from '@sveltejs/kit';
 import { eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, t } from '#lib/server/db/index.ts';
+import { dateStops } from '#lib/server/repo.ts';
 
 const body = z.discriminatedUnion('kind', [
 	z.object({
 		kind: z.literal('ideas'),
 		tripId: z.number().int(),
 		columns: z.array(z.object({ baseId: z.number().int().nullable(), ids: z.array(z.number().int()) }))
+	}),
+	z.object({
+		kind: z.literal('stops'),
+		tripId: z.number().int(),
+		/** Each card is an existing stop (`id`) or a place dropped in from the palette (`placeId`). */
+		columns: z.array(
+			z.object({
+				optionId: z.number().int(),
+				items: z.array(
+					z.union([z.object({ id: z.number().int() }), z.object({ placeId: z.number().int() })])
+				)
+			})
+		)
 	}),
 	z.object({
 		kind: z.literal('items'),
@@ -34,6 +48,39 @@ export const POST = async ({ request, locals }) => {
 					tx.update(t.idea).set({ position, baseId: col.baseId }).where(eq(t.idea.id, id)).run()
 				);
 		});
+		return json({ ok: true });
+	}
+
+	if (b.kind === 'stops') {
+		const optionIds = b.columns.map((c) => c.optionId);
+		const options = optionIds.length
+			? db.select().from(t.routeOption).where(inArray(t.routeOption.id, optionIds)).all()
+			: [];
+		if (options.length !== optionIds.length || options.some((o) => o.tripId !== b.tripId))
+			error(403, 'Not your route');
+		const stopIds = b.columns.flatMap((c) => c.items.flatMap((i) => ('id' in i ? [i.id] : [])));
+		const stops = stopIds.length
+			? db.select().from(t.routeStop).where(inArray(t.routeStop.id, stopIds)).all()
+			: [];
+		const ownOptionIds = new Set(
+			db.select({ id: t.routeOption.id }).from(t.routeOption).where(eq(t.routeOption.tripId, b.tripId)).all().map((o) => o.id)
+		);
+		if (stops.length !== stopIds.length || stops.some((s) => !ownOptionIds.has(s.routeOptionId)))
+			error(403, 'Not your stops');
+		const placeIds = b.columns.flatMap((c) => c.items.flatMap((i) => ('placeId' in i ? [i.placeId] : [])));
+		if (placeIds.length) {
+			const found = db.select({ id: t.place.id }).from(t.place).where(inArray(t.place.id, placeIds)).all();
+			if (new Set(found.map((p) => p.id)).size !== new Set(placeIds).size) error(400, 'Unknown place');
+		}
+		db.transaction((tx) => {
+			for (const col of b.columns)
+				col.items.forEach((item, position) => {
+					if ('id' in item)
+						tx.update(t.routeStop).set({ position, routeOptionId: col.optionId }).where(eq(t.routeStop.id, item.id)).run();
+					else tx.insert(t.routeStop).values({ routeOptionId: col.optionId, placeId: item.placeId, position, nights: 1 }).run();
+				});
+		});
+		for (const id of optionIds) dateStops(b.tripId, id);
 		return json({ ok: true });
 	}
 

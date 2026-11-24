@@ -1,5 +1,6 @@
 import { addDays, ddMon, ddMonRange, ddMonYyyy, dddDd, yearMonth } from '#lib/dates.ts';
 import { formatMoney } from '#lib/money.ts';
+import { isAutoTitle, stopTitle } from '#lib/route.ts';
 import type { Day, PlanItem, PlanSection, RouteStop, SectionKind } from '#lib/server/db/schema.ts';
 import { cleanUrl, escapeTableCell, wikilink } from './links';
 import type { ExportAttachment, ExportFile, TripBundle } from './types';
@@ -86,7 +87,13 @@ export function linkTitle(b: TripBundle, title: string, placeId: number | null):
 
 /** The "Base" text for a route stop: label override, else a link to the city. */
 function baseText(b: TripBundle, stop: RouteStop) {
-	return stop.label || placeLink(b, stop.placeId, '(unnamed base)');
+	if (stop.label) return stop.label;
+	if (isAutoTitle(stop)) {
+		// "Osaka → Beppu", named after where the overnight transport goes
+		const next = b.bases[b.bases.findIndex((s) => s.id === stop.id) + 1];
+		return stopTitle(stop, next, (id) => placeName(b, id));
+	}
+	return placeLink(b, stop.placeId, '(unnamed base)');
 }
 
 /** Date range covered by a stop's nights: "13/Mar - 14/Mar" for 2 nights from the 13th. */

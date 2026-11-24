@@ -10,6 +10,7 @@ const audit = {
 export type TripStatus = 'planning' | 'booked' | 'ongoing' | 'done' | 'exported';
 export type PlaceLevel = 'country' | 'region' | 'city' | 'area' | 'place';
 export type StopKind = 'stay' | 'overnight_transport' | 'depart';
+export type TransportMode = 'ferry' | 'bus' | 'train' | 'flight';
 export type IdeaStatus = 'idea' | 'planned' | 'dropped' | 'parked';
 export type SectionKind =
 	| 'focus'
@@ -104,7 +105,10 @@ export const routeStop = sqliteTable('route_stop', {
 	label: text('label'),
 	nights: integer('nights').notNull().default(1),
 	startDate: text('start_date'),
-	kind: text('kind').$type<StopKind>().notNull().default('stay')
+	kind: text('kind').$type<StopKind>().notNull().default('stay'),
+	/** Overnight transport only: what you sleep on and who runs it ("ferry", "MOL Sunflower"). */
+	transportMode: text('transport_mode').$type<TransportMode>(),
+	operator: text('operator')
 });
 
 export const idea = sqliteTable('idea', {
