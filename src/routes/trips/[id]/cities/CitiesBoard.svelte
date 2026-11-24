@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * Phase 1: which cities you want to visit, before deciding what to do there or how to connect them.
+	 * Phase 1: which cities you want to visit. What to do there and how long to stay come next (Ideas).
 	 * Three columns (Must / Maybe / Skip); drag a card to change its priority.
 	 */
 	import { enhance } from '$app/forms';
@@ -13,14 +13,12 @@
 	type P = { id: number; name: string; level: string; aliases: string[] };
 	let {
 		tripId,
-		tripNights,
 		cities,
 		places,
 		ideaCounts = {},
 		errors = null
 	}: {
 		tripId: number;
-		tripNights: number;
 		cities: TripCity[];
 		places: P[];
 		ideaCounts?: Record<number, number>;
@@ -33,9 +31,6 @@
 		{ key: 'skip', label: 'Skip', hint: 'Considered, not going' }
 	];
 	const placeName = (id: number) => places.find((p) => p.id === id)?.name ?? '?';
-	const nightsText = (c: Pick<TripCity, 'nightsMin' | 'nightsMax'>) =>
-		c.nightsMax ? `${c.nightsMin}–${c.nightsMax} nights` : `${c.nightsMin} ${c.nightsMin === 1 ? 'night' : 'nights'}`;
-
 	let columns = $derived(
 		PRIORITIES.map((p) => ({ priority: p.key, items: cities.filter((c) => c.priority === p.key) }))
 	);
@@ -63,39 +58,9 @@
 		}, 0);
 	}
 
-	const sum = (list: TripCity[], key: 'min' | 'max') =>
-		list.reduce((n, c) => n + (key === 'min' ? c.nightsMin : (c.nightsMax ?? c.nightsMin)), 0);
-	const range = (list: TripCity[]) => {
-		const a = sum(list, 'min');
-		const b = sum(list, 'max');
-		return a === b ? `${a}` : `${a}–${b}`;
-	};
-	const must = $derived(cities.filter((c) => c.priority === 'must'));
-	const maybe = $derived(cities.filter((c) => c.priority === 'maybe'));
-	const mustMin = $derived(sum(must, 'min'));
 </script>
 
 <section class="stack">
-	<div class="summary card">
-		<div>
-			<strong>Must:</strong> {range(must)} of {tripNights} nights
-			<div class="meter" title="Must cities against the trip length">
-				<div class="fill must" style="width:{Math.min(100, (mustMin / Math.max(tripNights, 1)) * 100)}%"></div>
-				<div
-					class="fill maybe"
-					style="width:{Math.max(0, Math.min(100 - (mustMin / Math.max(tripNights, 1)) * 100, (sum(maybe, 'min') / Math.max(tripNights, 1)) * 100))}%"
-				></div>
-			</div>
-		</div>
-		<div class="small muted">
-			{#if mustMin > tripNights}
-				<span class="bad">Must cities alone need {mustMin - tripNights} more nights than the trip has.</span>
-			{:else}
-				{tripNights - mustMin} nights left for Maybe cities ({range(maybe)} wanted) and travel.
-			{/if}
-		</div>
-	</div>
-
 	<form method="POST" action="?/addCity" use:enhance class="add card">
 		<label class="city">City <PlaceInput name="placeName" {places} placeholder="Nagasaki City" levels={['city', 'area', 'region']} /></label>
 		<label>
@@ -104,8 +69,6 @@
 				{#each PRIORITIES as p (p.key)}<option value={p.key} selected={p.key === 'must'}>{p.label}</option>{/each}
 			</select>
 		</label>
-		<label>Nights <input type="number" name="nightsMin" min="0" max="60" value="1" /></label>
-		<label>to (optional) <input type="number" name="nightsMax" min="0" max="60" placeholder="–" /></label>
 		<label class="why">Why <input name="notes" placeholder="Onsen, the Hells" /></label>
 		<button class="primary">Add city</button>
 		{#if errors && !('cityId' in (errors ?? {}))}
@@ -129,10 +92,7 @@
 				>
 					{#each col.items as c (c.id)}
 						<article class="card city-card" animate:flip={{ duration: flipDurationMs }}>
-							<div class="spread top">
-								<strong class="grow">{placeName(c.placeId)}</strong>
-								<span class="badge">{nightsText(c)}</span>
-							</div>
+							<strong>{placeName(c.placeId)}</strong>
 							{#if c.notes}<p class="small notes">{c.notes}</p>{/if}
 							{#if editing === c.id}
 								<form
@@ -145,10 +105,6 @@
 									class="stack edit"
 								>
 									<input type="hidden" name="cityId" value={c.id} />
-									<div class="pair">
-										<label>Nights <input type="number" name="nightsMin" min="0" max="60" value={c.nightsMin} /></label>
-										<label>to (optional) <input type="number" name="nightsMax" min="0" max="60" value={c.nightsMax ?? ''} /></label>
-									</div>
 									<label>
 										{c.priority === 'skip' ? 'Why not' : 'Why'}
 										<textarea name="notes" rows="2" value={c.notes ?? ''}></textarea>
@@ -180,33 +136,10 @@
 </section>
 
 <style>
-	.summary {
-		display: grid;
-		gap: 0.35rem;
-	}
-	.meter {
-		display: flex;
-		height: 6px;
-		border-radius: 3px;
-		background: var(--border);
-		overflow: hidden;
-		margin-top: 0.35rem;
-		max-width: 420px;
-	}
-	.fill.must {
-		background: var(--focus);
-	}
-	.fill.maybe {
-		background: var(--maybe);
-		opacity: 0.6;
-	}
-	.bad {
-		color: var(--accent);
-	}
 	.add {
 		display: grid;
 		gap: 0.5rem;
-		grid-template-columns: minmax(160px, 2fr) minmax(100px, 1fr) 80px 90px minmax(140px, 2fr) auto;
+		grid-template-columns: minmax(180px, 2fr) minmax(110px, 1fr) minmax(160px, 3fr) auto;
 		align-items: end;
 	}
 	.add .full {
@@ -271,9 +204,6 @@
 		padding: 0.55rem 0.65rem;
 		cursor: grab;
 	}
-	.top {
-		flex-wrap: nowrap;
-	}
 	.notes {
 		margin: 0.3rem 0 0;
 		white-space: pre-wrap;
@@ -281,11 +211,6 @@
 	}
 	.edit {
 		margin-top: 0.5rem;
-	}
-	.pair {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 0.4rem;
 	}
 	.foot {
 		display: flex;

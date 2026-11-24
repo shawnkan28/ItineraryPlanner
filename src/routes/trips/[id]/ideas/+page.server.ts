@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { db, t } from '#lib/server/db/index.ts';
 import { resolvePlace, tripId } from '#lib/server/repo.ts';
-import { decisionSchema, ideaSchema, parseForm, staySchema } from '#lib/schemas.ts';
+import { cityNightsSchema, decisionSchema, ideaSchema, parseForm, staySchema } from '#lib/schemas.ts';
 import { toMinor } from '#lib/money.ts';
 
 export const load = ({ params }) => {
@@ -59,6 +59,20 @@ export const actions = {
 			.set({ ...rest, cityId: cityOrNull(id, cityId), placeId: resolvePlace(placeName) })
 			.where(eq(t.idea.id, idea.id))
 			.run();
+	},
+	/** Nights wanted in a city, decided once its ideas are in. */
+	setCityNights: async ({ params, request }) => {
+		const id = tripId(params);
+		const f = await request.formData();
+		const city = db
+			.select()
+			.from(t.tripCity)
+			.where(and(eq(t.tripCity.id, num(f, 'cityId')), eq(t.tripCity.tripId, id)))
+			.get();
+		if (!city) return fail(404);
+		const parsed = parseForm(cityNightsSchema, f);
+		if (!parsed.ok) return fail(400, { error: Object.values(parsed.errors).join(', ') });
+		db.update(t.tripCity).set(parsed.data).where(eq(t.tripCity.id, city.id)).run();
 	},
 	setStatus: async ({ params, request }) => {
 		const id = tripId(params);

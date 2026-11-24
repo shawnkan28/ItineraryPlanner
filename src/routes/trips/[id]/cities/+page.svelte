@@ -1,9 +1,7 @@
 <script lang="ts">
-	import { daysBetween } from '#lib/dates.ts';
 	import CitiesBoard from './CitiesBoard.svelte';
 
 	let { data, form } = $props();
-	const tripNights = $derived(daysBetween(data.trip.startDate, data.trip.endDate));
 </script>
 
 <svelte:head><title>Cities · {data.trip.name}</title></svelte:head>
@@ -13,15 +11,14 @@
 		<div>
 			<h2>Phase 1 · Cities</h2>
 			<p class="muted small">
-				Decide where you want to go and roughly how long. Drag a city between columns to change its
-				priority. The order comes later, in Route.
+				Decide where you want to go. Drag a city between columns to change its priority. How long to
+				stay comes after you know what you want to do there, and the order comes last, in Route.
 			</p>
 		</div>
 		<a class="next" href="/trips/{data.trip.id}/ideas">Next: things to do →</a>
 	</div>
 	<CitiesBoard
 		tripId={data.trip.id}
-		{tripNights}
 		cities={data.cities}
 		places={data.places}
 		ideaCounts={data.ideaCounts}

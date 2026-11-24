@@ -5,7 +5,7 @@
 	import { flip } from 'svelte/animate';
 	import { keep } from '#lib/forms.ts';
 	import { formatMoney } from '#lib/money.ts';
-	import { niceDate } from '#lib/dates.ts';
+	import { daysBetween, niceDate } from '#lib/dates.ts';
 	import PlaceInput from '#lib/components/PlaceInput.svelte';
 	import StatusBadge from '#lib/components/StatusBadge.svelte';
 	import type { Idea } from '#lib/server/db/schema.ts';
@@ -18,8 +18,15 @@
 	type Column = { cityId: number | null; city: City | null; title: string; sub: string; items: Idea[] };
 	const PRIORITY_LABEL = { must: 'Must', maybe: 'Maybe', skip: 'Skipped' } as const;
 	const RANK = { must: 0, maybe: 1, skip: 2 } as const;
-	const nightsText = (c: City) =>
-		c.nightsMax ? `${c.nightsMin}–${c.nightsMax} nights` : `${c.nightsMin} ${c.nightsMin === 1 ? 'night' : 'nights'}`;
+
+	// Nights wanted per city, against the trip length.
+	const tripNights = $derived(daysBetween(data.trip.startDate, data.trip.endDate));
+	const sumMin = (list: City[]) => list.reduce((n, c) => n + c.nightsMin, 0);
+	const sumMax = (list: City[]) => list.reduce((n, c) => n + (c.nightsMax ?? c.nightsMin), 0);
+	const range = (list: City[]) => (sumMin(list) === sumMax(list) ? `${sumMin(list)}` : `${sumMin(list)}–${sumMax(list)}`);
+	const must = $derived(data.cities.filter((c) => c.priority === 'must'));
+	const maybe = $derived(data.cities.filter((c) => c.priority === 'maybe'));
+	const pct = (n: number) => Math.max(0, Math.min(100, (n / Math.max(tripNights, 1)) * 100));
 
 	/** One column per shortlisted city (Must, then Maybe; skipped ones only while they still hold ideas). */
 	function buildColumns(): Column[] {
@@ -30,7 +37,7 @@
 			cityId: c.id,
 			city: c,
 			title: placeName(c.placeId) || 'City',
-			sub: `${PRIORITY_LABEL[c.priority]} · ${nightsText(c)}`,
+			sub: PRIORITY_LABEL[c.priority],
 			items: data.ideas.filter((i) => i.cityId === c.id)
 		}));
 		const known = new Set(cities.map((c) => c.id));
@@ -90,6 +97,22 @@
 			<a class="next" href="/trips/{data.trip.id}/route">Next: build route →</a>
 		</div>
 	</div>
+	{#if must.length || maybe.length}
+		<div class="card nights-summary small">
+			<div>
+				<strong>Nights wanted:</strong> Must {range(must)}{#if maybe.length} · Maybe {range(maybe)}{/if} · trip has {tripNights}
+			</div>
+			<div class="meter" title="Must (green) and Maybe (amber) nights against the trip length">
+				<div class="fill must" style="width:{pct(sumMin(must))}%"></div>
+				<div class="fill maybe" style="width:{Math.min(pct(sumMin(maybe)), 100 - pct(sumMin(must)))}%"></div>
+			</div>
+			{#if sumMin(must) > tripNights}
+				<div class="bad">Must cities alone need {sumMin(must) - tripNights} more nights than the trip has.</div>
+			{:else}
+				<div class="muted">Set nights per city once you know what you want to do there. Route uses the minimum as a starting point.</div>
+			{/if}
+		</div>
+	{/if}
 	{#if data.cities.length === 0}
 		<p class="card small">No cities yet. <a href="/trips/{data.trip.id}/cities">Shortlist cities</a> to get one column per city.</p>
 	{/if}
@@ -105,6 +128,19 @@
 						<h3>{col.title}</h3>
 						<span class="muted small">{col.sub}</span>
 						{#if col.city?.notes}<span class="small why">{col.city.notes}</span>{/if}
+						{#if col.city}
+							<form method="POST" action="?/setCityNights" use:enhance={keep} class="nights small">
+								<input type="hidden" name="cityId" value={col.city.id} />
+								<label>
+									Nights
+									<input type="number" name="nightsMin" min="0" max="60" value={col.city.nightsMin} onchange={(e) => e.currentTarget.form?.requestSubmit()} />
+								</label>
+								<label>
+									to
+									<input type="number" name="nightsMax" min="0" max="60" placeholder="–" value={col.city.nightsMax ?? ''} onchange={(e) => e.currentTarget.form?.requestSubmit()} />
+								</label>
+							</form>
+						{/if}
 					</header>
 
 					<div
@@ -302,6 +338,45 @@
 			grid-auto-flow: row;
 			grid-auto-columns: auto;
 		}
+	}
+	.nights-summary {
+		display: grid;
+		gap: 0.35rem;
+	}
+	.meter {
+		display: flex;
+		height: 6px;
+		max-width: 420px;
+		border-radius: 3px;
+		background: var(--border);
+		overflow: hidden;
+	}
+	.fill.must {
+		background: var(--focus);
+	}
+	.fill.maybe {
+		background: var(--maybe);
+		opacity: 0.6;
+	}
+	.bad {
+		color: var(--accent);
+	}
+	.nights {
+		display: flex;
+		gap: 0.5rem;
+		margin-top: 0.3rem;
+	}
+	.nights label {
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+		color: var(--muted);
+	}
+	.nights input {
+		width: 3.6rem;
+		flex: 0 0 3.6rem;
+		min-width: 0;
+		padding: 0.2rem 0.35rem;
 	}
 	.next {
 		border: 1px solid var(--focus);

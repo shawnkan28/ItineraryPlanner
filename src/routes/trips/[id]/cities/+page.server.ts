@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { db, t } from '#lib/server/db/index.ts';
 import { resolvePlace, tripId } from '#lib/server/repo.ts';
-import { cityNightsSchema, parseForm, tripCitySchema } from '#lib/schemas.ts';
+import { cityNotesSchema, parseForm, tripCitySchema } from '#lib/schemas.ts';
 
 export const load = ({ params }) => {
 	const id = tripId(params);
@@ -56,8 +56,6 @@ export const actions = {
 				tripId: id,
 				placeId,
 				priority: parsed.data.priority,
-				nightsMin: parsed.data.nightsMin,
-				nightsMax: parsed.data.nightsMax,
 				notes: parsed.data.notes,
 				position: max + 1
 			})
@@ -67,7 +65,7 @@ export const actions = {
 		const f = await request.formData();
 		const city = ownCity(tripId(params), num(f, 'cityId'));
 		if (!city) return fail(404);
-		const parsed = parseForm(cityNightsSchema, f);
+		const parsed = parseForm(cityNotesSchema, f);
 		if (!parsed.ok) return fail(400, { cityErrors: parsed.errors, cityId: city.id });
 		db.update(t.tripCity).set(parsed.data).where(eq(t.tripCity.id, city.id)).run();
 	},

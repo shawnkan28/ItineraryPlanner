@@ -78,7 +78,10 @@ export const routeStopSchema = z.object({
 	operator: opt
 });
 
-/** Nights wanted for a shortlisted city: a minimum and an optional maximum ("1–2"). */
+/**
+ * Nights wanted in a shortlisted city: a minimum and an optional maximum ("1–2").
+ * Set on the Ideas tab, once you know what you want to do there.
+ */
 export const cityNightsSchema = z
 	.object({
 		nightsMin: z.coerce.number().int().min(0).max(60).default(1),
@@ -86,17 +89,17 @@ export const cityNightsSchema = z
 			.string()
 			.optional()
 			.transform((v) => (v === undefined || v === '' ? null : Number(v)))
-			.pipe(z.number().int().min(0).max(60).nullable()),
-		notes: opt
+			.pipe(z.number().int().min(0).max(60).nullable())
 	})
 	.transform((v) => ({ ...v, nightsMax: v.nightsMax !== null && v.nightsMax > v.nightsMin ? v.nightsMax : null }));
 
-export const tripCitySchema = z
-	.object({
-		placeName: req,
-		priority: z.enum(['must', 'maybe', 'skip']).default('maybe')
-	})
-	.and(cityNightsSchema);
+export const cityNotesSchema = z.object({ notes: opt });
+
+export const tripCitySchema = z.object({
+	placeName: req,
+	priority: z.enum(['must', 'maybe', 'skip']).default('maybe'),
+	notes: opt
+});
 
 export const ideaSchema = z.object({
 	cityId: optInt,
