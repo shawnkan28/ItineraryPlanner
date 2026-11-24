@@ -10,6 +10,7 @@
 	import { niceDate } from '#lib/dates.ts';
 	import { keep } from '#lib/forms.ts';
 	import PlaceInput from '#lib/components/PlaceInput.svelte';
+	import { similarPlace } from '#lib/similar.ts';
 	import type { CityPriority, Idea, TripCity } from '#lib/server/db/schema.ts';
 
 	type P = { id: number; name: string; level: string; aliases: string[] };
@@ -38,11 +39,30 @@
 		{ key: 'skip', label: 'Skip', hint: 'Not doing it' }
 	];
 	const placeName = (id: number | null) => places.find((p) => p.id === id)?.name ?? '';
+	/** Ideas are a place plus notes; older ideas without a place fall back to their title. */
+	const ideaName = (i: Idea) => placeName(i.placeId) || i.title;
+
+	// Warn while typing when the place looks like an idea already on the trip (any city).
+	let editing: number | null = $state(null);
+	let addPlace = $state('');
+	let editPlace = $state('');
+	const cityLabel = (cityId: number | null) => {
+		if (cityId === null) return 'no city';
+		if (cityId === city?.id) return 'this city';
+		const c = cities.find((x) => x.id === cityId);
+		return c ? placeName(c.placeId) : 'another city';
+	};
+	const similarTo = (name: string, except: number | null = null) =>
+		name.trim().length < 3 ? [] : ideas.filter((i) => i.id !== except && similarPlace(name, ideaName(i)));
+	const addMatches = $derived(similarTo(addPlace));
+	const editMatches = $derived(editing === null ? [] : similarTo(editPlace, editing));
+	/** Ideas that look like another idea on the trip get a yellow highlight. */
+	const dupesOf = (i: Idea) => similarTo(ideaName(i), i.id);
+	const typed = (e: Event) => (e.target as HTMLInputElement).value;
 	const title = $derived(city ? placeName(city.placeId) : 'Ideas without a city');
 	const mine = $derived(ideas.filter((i) => (city ? i.cityId === city.id : i.cityId === null)));
 
 	let columns = $derived(PRIORITIES.map((p) => ({ priority: p.key, items: mine.filter((i) => i.priority === p.key) })));
-	let editing: number | null = $state(null);
 	let addPriority: CityPriority = $state('must');
 	const flipDurationMs = 150;
 
@@ -74,8 +94,11 @@
 		if (editing !== null) editing = null;
 		else onclose();
 	}
-	let titleInput: HTMLInputElement | undefined = $state();
-	$effect(() => titleInput?.focus());
+	let addForm: HTMLFormElement | undefined = $state();
+	const focusPlace = () => addForm?.querySelector<HTMLInputElement>('input[name=placeName]')?.focus();
+	$effect(() => {
+		if (addForm) focusPlace();
+	});
 </script>
 
 <svelte:window {onkeydown} />
@@ -113,14 +136,21 @@
 			action="?/addIdea"
 			use:enhance={() => async ({ update }) => {
 				await update();
-				titleInput?.focus();
+				addPlace = '';
+				focusPlace();
 			}}
 			class="add"
+			bind:this={addForm}
 		>
 			<input type="hidden" name="cityId" value={city?.id ?? ''} />
 			<input type="hidden" name="priority" value={addPriority} />
-			<input bind:this={titleInput} name="title" placeholder="Thing to do or see" required aria-label="New idea" />
-			<PlaceInput name="placeName" {places} placeholder="Place (optional)" />
+			<div class="place" oninput={(e) => (addPlace = typed(e))}>
+				<PlaceInput name="placeName" {places} placeholder="Place, e.g. Kuromon Market" required />
+			</div>
+			<input class="notes" name="details" placeholder="Notes: what to do or see there" aria-label="Notes" />
+			{#if addMatches.length}
+				{@render similarNote(addMatches)}
+			{/if}
 			<div class="seg" role="radiogroup" aria-label="Priority">
 				{#each PRIORITIES as p (p.key)}
 					<button type="button" role="radio" aria-checked={addPriority === p.key} class:on={addPriority === p.key} onclick={() => (addPriority = p.key)}>
@@ -143,16 +173,24 @@
 						onfinalize={(e) => finalize(ci, e)}
 					>
 						{#each col.items as idea (idea.id)}
-							<article class="idea" animate:flip={{ duration: flipDurationMs }}>
+							{@const dupes = dupesOf(idea)}
+							<article class="idea" class:dupe={dupes.length > 0} animate:flip={{ duration: flipDurationMs }}>
 								<div class="spread top">
-									<strong class="grow">{idea.title}</strong>
+									<strong class="grow">{ideaName(idea)}</strong>
 									{#if idea.status === 'planned'}<span class="badge green">planned</span>{/if}
 									{#if idea.status === 'parked'}<span class="badge amber">parked</span>{/if}
-									<button type="button" class="sm ghost" aria-expanded={editing === idea.id} onclick={() => (editing = editing === idea.id ? null : idea.id)}>
+									<button type="button" class="sm ghost" aria-expanded={editing === idea.id} onclick={() => {
+											editing = editing === idea.id ? null : idea.id;
+											editPlace = ideaName(idea);
+										}}>
 										{editing === idea.id ? 'Close' : 'Edit'}
 									</button>
 								</div>
-								{#if idea.placeId}<div class="small muted">{placeName(idea.placeId)}</div>{/if}
+								{#if dupes.length}
+									<div class="small dupe-note">
+										Similar to {dupes.map((d) => `${ideaName(d)} (${cityLabel(d.cityId)})`).join(', ')}
+									</div>
+								{/if}
 								{#if idea.details}<p class="small details">{idea.details}</p>{/if}
 								{#if idea.reason}<p class="small muted">Why: {idea.reason}</p>{/if}
 
@@ -168,9 +206,14 @@
 									>
 										<input type="hidden" name="ideaId" value={idea.id} />
 										<input type="hidden" name="status" value={idea.status} />
-										<input name="title" value={idea.title} required aria-label="Title" />
-										<PlaceInput name="placeName" value={placeName(idea.placeId)} {places} placeholder="Place (optional)" />
-										<textarea name="details" rows="2" placeholder="Details" value={idea.details ?? ''}></textarea>
+										<!-- svelte-ignore a11y_no_static_element_interactions -->
+										<div oninput={(e) => (editPlace = typed(e))}>
+											<label>Place <PlaceInput name="placeName" value={ideaName(idea)} {places} required /></label>
+										</div>
+										{#if editMatches.length}
+											{@render similarNote(editMatches)}
+										{/if}
+										<label>Notes <textarea name="details" rows="2" placeholder="What to do or see there" value={idea.details ?? ''}></textarea></label>
 										<div class="pair">
 											<label>
 												Priority
@@ -233,6 +276,16 @@
 		{/if}
 	</div>
 </div>
+
+{#snippet similarNote(matches: Idea[])}
+	<div class="similar small" role="status">
+		<strong>Similar place already on this trip:</strong>
+		{#each matches as m, i (m.id)}
+			{i ? ', ' : ''}{ideaName(m)} <span class="muted">({cityLabel(m.cityId)} · {m.priority})</span>
+		{/each}
+		<span class="muted">· you can still add it.</span>
+	</div>
+{/snippet}
 
 <style>
 	.backdrop {
@@ -307,7 +360,10 @@
 	}
 	.add {
 		display: grid;
-		grid-template-columns: minmax(180px, 2fr) minmax(140px, 1.3fr) auto auto;
+		grid-template-columns: minmax(200px, 1fr) auto auto;
+		grid-template-areas:
+			'place seg add'
+			'notes notes notes';
 		gap: 0.5rem;
 		align-items: center;
 		padding: 0.6rem;
@@ -317,17 +373,47 @@
 	}
 	@media (max-width: 720px) {
 		.add {
-			grid-template-columns: 1fr 1fr;
-		}
-		.add .seg {
-			grid-column: 1 / -1;
+			grid-template-columns: 1fr;
+			grid-template-areas: 'place' 'notes' 'seg' 'add';
 		}
 		.add .seg button {
 			flex: 1;
 		}
-		.add > button.primary {
-			grid-column: 1 / -1;
-		}
+	}
+	.add .place {
+		grid-area: place;
+	}
+	.add .notes {
+		grid-area: notes;
+	}
+	.add .similar {
+		grid-column: 1 / -1;
+	}
+	.similar {
+		padding: 0.4rem 0.6rem;
+		border-radius: 7px;
+		background: var(--dupe-soft);
+		color: var(--text);
+		border: 1px solid var(--dupe);
+	}
+	.idea.dupe {
+		background: var(--dupe-soft);
+		border-color: var(--dupe);
+		box-shadow: inset 3px 0 0 var(--dupe);
+	}
+	.dupe-note {
+		margin-top: 0.15rem;
+		color: var(--text);
+	}
+	.dupe-note::before {
+		content: '⚠ ';
+		color: var(--dupe);
+	}
+	.add .seg {
+		grid-area: seg;
+	}
+	.add > button.primary {
+		grid-area: add;
 	}
 	.seg {
 		display: inline-flex;

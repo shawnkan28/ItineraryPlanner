@@ -101,10 +101,14 @@ export const tripCitySchema = z.object({
 	notes: opt
 });
 
+/** An idea is a place (required) plus notes; its title is the place name. */
 export const ideaSchema = z.object({
 	cityId: optInt,
-	placeName: opt,
-	title: req,
+	placeName: z
+		.string()
+		.optional()
+		.transform((v) => (v ?? '').replace(/^\[\[|\]\]$/g, '').trim())
+		.pipe(z.string().min(1, 'Add a place')),
 	details: opt,
 	status: z.enum(['idea', 'planned', 'dropped', 'parked']).default('idea'),
 	priority: z.enum(['must', 'maybe', 'skip']).default('maybe'),

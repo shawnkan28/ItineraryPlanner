@@ -101,7 +101,7 @@ export const actions = {
 			.where(eq(t.idea.tripId, id))
 			.get()!.n;
 		db.insert(t.idea)
-			.values({ ...rest, tripId: id, cityId: cityOrNull(id, cityId), placeId: resolvePlace(placeName), position: max + 1 })
+			.values({ ...rest, title: placeName, tripId: id, cityId: cityOrNull(id, cityId), placeId: resolvePlace(placeName), position: max + 1 })
 			.run();
 	},
 	updateIdea: async ({ params, request }) => {
@@ -113,7 +113,7 @@ export const actions = {
 		if (!parsed.ok) return fail(400, { error: Object.values(parsed.errors).join(', ') });
 		const { placeName, cityId, ...rest } = parsed.data;
 		db.update(t.idea)
-			.set({ ...rest, cityId: cityOrNull(id, cityId), placeId: resolvePlace(placeName) })
+			.set({ ...rest, title: placeName, cityId: cityOrNull(id, cityId), placeId: resolvePlace(placeName) })
 			.where(eq(t.idea.id, idea.id))
 			.run();
 	},
