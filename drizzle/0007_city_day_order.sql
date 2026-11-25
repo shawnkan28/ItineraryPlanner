@@ -1,0 +1,1 @@
+ALTER TABLE `trip_city` ADD `day_order` integer;

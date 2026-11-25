@@ -7,8 +7,9 @@
 	const tabs = $derived([
 		{ href: base, label: 'Dashboard', exact: true },
 		{ href: `${base}/cities`, label: '1 · Cities' },
-		{ href: `${base}/route`, label: '2 · Route' },
-		{ href: `${base}/itinerary`, label: '3 · Itinerary' },
+		{ href: `${base}/city-days`, label: '2 · Days' },
+		{ href: `${base}/route`, label: '3 · Route' },
+		{ href: `${base}/itinerary`, label: '4 · Itinerary' },
 		{ href: `${base}/bookings`, label: 'Bookings' },
 		{ href: `${base}/stays`, label: 'Stays' },
 		{ href: `${base}/journal`, label: 'Journal' },
@@ -18,7 +19,7 @@
 		tab.exact
 			? page.url.pathname === tab.href
 			: page.url.pathname.startsWith(tab.href) ||
-				(tab.label.startsWith('3') && page.url.pathname.startsWith(`${base}/days`) && page.url.searchParams.get('tab') !== 'journal') ||
+				(tab.label.startsWith('4') && page.url.pathname.startsWith(`${base}/days`) && page.url.searchParams.get('tab') !== 'journal') ||
 				(tab.label === 'Journal' && page.url.pathname.startsWith(`${base}/days`) && page.url.searchParams.get('tab') === 'journal');
 </script>
 

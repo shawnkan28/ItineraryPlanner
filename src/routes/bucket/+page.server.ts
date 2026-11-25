@@ -22,6 +22,18 @@ function upsert(placeId: number, values: { status?: 'saved' | 'hidden'; notes?: 
 	else db.insert(t.bucketItem).values({ placeId, status: 'saved', ...values }).run();
 }
 
+const CITY_LEVELS = ['country', 'region', 'city', 'area'];
+
+/**
+ * Pin a place to its city (place.parent_id) so it pops up in that city's ideas on any trip.
+ * `cityName` null clears it. Places only; a city has no parent city.
+ */
+function setCity(placeId: number, cityName: string | null) {
+	const cityId = cityName ? resolvePlace(cityName, 'city') : null;
+	if (cityId === placeId) return;
+	db.update(t.place).set({ parentId: cityId }).where(eq(t.place.id, placeId)).run();
+}
+
 export const actions = {
 	/** Add a place by hand. A place inside a city remembers that city (as its parent). */
 	add: async ({ request }) => {
@@ -29,24 +41,36 @@ export const actions = {
 		if (!parsed.ok) return fail(400, { errors: parsed.errors });
 		const { placeName, kind, cityName, notes } = parsed.data;
 		const placeId = resolvePlace(placeName, kind === 'city' ? 'city' : 'place')!;
-		if (kind === 'place' && cityName) {
-			const cityId = resolvePlace(cityName, 'city')!;
-			const p = db.select().from(t.place).where(eq(t.place.id, placeId)).get()!;
-			if (!p.parentId && cityId !== placeId) db.update(t.place).set({ parentId: cityId }).where(eq(t.place.id, placeId)).run();
-		}
+		if (kind === 'place' && cityName) setCity(placeId, cityName);
 		upsert(placeId, { status: 'saved', notes });
 	},
+	/**
+	 * Save something that came from a trip. A place skipped inside a city keeps that city,
+	 * so it shows up there next time.
+	 */
 	save: async ({ request }) => {
 		const f = await request.formData();
 		const placeId = placeIdOf(f);
 		if (!placeId) return fail(404);
-		upsert(placeId, { status: 'saved' });
+		const e = bucketEntries({ includeHidden: true }).find((x) => x.placeId === placeId);
+		const p = db.select().from(t.place).where(eq(t.place.id, placeId)).get()!;
+		if (e && !e.isCity && e.cityName && !p.parentId) setCity(placeId, e.cityName);
+		upsert(placeId, { status: 'saved', notes: e?.notes ?? e?.sources.find((s) => s.note)?.note ?? null });
 	},
-	notes: async ({ request }) => {
+	/** Edit an entry (kind, city, note). Editing saves it. */
+	update: async ({ request }) => {
 		const f = await request.formData();
 		const placeId = placeIdOf(f);
 		if (!placeId) return fail(404);
-		upsert(placeId, { notes: String(f.get('notes') ?? '').trim() || null });
+		const p = db.select().from(t.place).where(eq(t.place.id, placeId)).get()!;
+		const kind = f.get('kind') === 'city' ? 'city' : 'place';
+		const isCity = CITY_LEVELS.includes(p.level);
+		if (kind === 'city' && !isCity) db.update(t.place).set({ level: 'city', parentId: null }).where(eq(t.place.id, placeId)).run();
+		if (kind === 'place') {
+			if (isCity) db.update(t.place).set({ level: 'place' }).where(eq(t.place.id, placeId)).run();
+			setCity(placeId, String(f.get('cityName') ?? '').trim() || null);
+		}
+		upsert(placeId, { status: 'saved', notes: String(f.get('notes') ?? '').trim() || null });
 	},
 	hide: async ({ request }) => {
 		const f = await request.formData();

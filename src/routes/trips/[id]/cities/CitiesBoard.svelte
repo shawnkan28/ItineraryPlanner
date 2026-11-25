@@ -16,6 +16,7 @@
 		cities,
 		places,
 		ideas,
+		dayCounts = {},
 		onopen,
 		errors = null
 	}: {
@@ -23,6 +24,8 @@
 		cities: TripCity[];
 		places: P[];
 		ideas: Idea[];
+		/** Days planned per city on the Days tab. */
+		dayCounts?: Record<number, number>;
 		onopen: (cityId: number) => void;
 		errors?: Record<string, string> | null;
 	} = $props();
@@ -36,8 +39,6 @@
 	let columns = $derived(
 		PRIORITIES.map((p) => ({ priority: p.key, items: cities.filter((c) => c.priority === p.key) }))
 	);
-	const nightsText = (c: TripCity) =>
-		c.nightsMax ? `${c.nightsMin}–${c.nightsMax} nights` : `${c.nightsMin} ${c.nightsMin === 1 ? 'night' : 'nights'}`;
 	const countsFor = (cityId: number) => {
 		const list = ideas.filter((i) => i.cityId === cityId);
 		return { must: list.filter((i) => i.priority === 'must').length, maybe: list.filter((i) => i.priority === 'maybe').length, all: list.length };
@@ -102,7 +103,7 @@
 						<article class="card city-card" animate:flip={{ duration: flipDurationMs }}>
 							<div class="spread top">
 								<strong class="grow">{placeName(c.placeId)}</strong>
-								{#if c.priority !== 'skip'}<span class="badge">{nightsText(c)}</span>{/if}
+								{#if c.priority !== 'skip' && dayCounts[c.id]}<span class="badge">{dayCounts[c.id]} {dayCounts[c.id] === 1 ? 'day' : 'days'}</span>{/if}
 							</div>
 							{#if c.notes}<p class="small notes">{c.notes}</p>{/if}
 							<footer class="foot">

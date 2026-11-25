@@ -4,7 +4,7 @@ import { db, t } from '#lib/server/db/index.ts';
 import { resolvePlace, tripId } from '#lib/server/repo.ts';
 import { bucketEntries } from '#lib/server/bucket.ts';
 import { similarPlace } from '#lib/similar.ts';
-import { cityNightsSchema, cityNotesSchema, decisionSchema, ideaSchema, parseForm, tripCitySchema } from '#lib/schemas.ts';
+import { cityNotesSchema, decisionSchema, ideaSchema, parseForm, tripCitySchema } from '#lib/schemas.ts';
 
 export const load = ({ params }) => {
 	const id = tripId(params);
@@ -22,7 +22,18 @@ export const load = ({ params }) => {
 		.all();
 	const decisions = db.select().from(t.decision).where(eq(t.decision.tripId, id)).orderBy(asc(t.decision.id)).all();
 	// the shared bucket list, minus what only comes from this trip
-	return { cities, ideas, decisions, bucket: bucketEntries({ exceptTrip: id }) };
+	// days planned per city on the Days tab
+	const dayCounts = Object.fromEntries(
+		db
+			.select({ cityId: t.cityDay.tripCityId, n: sql<number>`count(*)` })
+			.from(t.cityDay)
+			.innerJoin(t.tripCity, eq(t.tripCity.id, t.cityDay.tripCityId))
+			.where(eq(t.tripCity.tripId, id))
+			.groupBy(t.cityDay.tripCityId)
+			.all()
+			.map((r) => [r.cityId, r.n])
+	) as Record<number, number>;
+	return { cities, ideas, decisions, dayCounts, bucket: bucketEntries({ exceptTrip: id }) };
 };
 
 const ownCity = (tripId: number, cityId: number) =>
@@ -88,15 +99,6 @@ export const actions = {
 		if (!parsed.ok) return fail(400, { cityErrors: parsed.errors, cityId: city.id });
 		db.update(t.tripCity).set(parsed.data).where(eq(t.tripCity.id, city.id)).run();
 	},
-	/** Nights wanted in a city, decided once its ideas are in. */
-	setCityNights: async ({ params, request }) => {
-		const f = await request.formData();
-		const city = ownCity(tripId(params), num(f, 'cityId'));
-		if (!city) return fail(404);
-		const parsed = parseForm(cityNightsSchema, f);
-		if (!parsed.ok) return fail(400, { error: Object.values(parsed.errors).join(', ') });
-		db.update(t.tripCity).set(parsed.data).where(eq(t.tripCity.id, city.id)).run();
-	},
 	/** Ideas filed under the city become unassigned (they are kept). */
 	deleteCity: async ({ params, request }) => {
 		const f = await request.formData();
@@ -134,8 +136,12 @@ export const actions = {
 		const cityId = cityOrNull(id, parsed.data.cityId);
 		const clash = sameCityClash(id, cityId, placeName, idea.id);
 		if (clash) return fail(400, { error: clashError(clash) });
+		// moving to another city, or skipping it, takes it off its day (Days tab)
+		const keepDay = cityId === idea.cityId && rest.priority !== 'skip';
+		// a priority set by hand (or a move to another city) wins over one remembered from a city skip
+		const forget = rest.priority !== idea.priority || cityId !== idea.cityId;
 		db.update(t.idea)
-			.set({ ...rest, title: placeName, cityId, placeId: resolvePlace(placeName) })
+			.set({ ...rest, title: placeName, cityId, placeId: resolvePlace(placeName), ...(keepDay ? {} : { cityDayId: null }), ...(forget ? { priorityBeforeCitySkip: null } : {}) })
 			.where(eq(t.idea.id, idea.id))
 			.run();
 	},

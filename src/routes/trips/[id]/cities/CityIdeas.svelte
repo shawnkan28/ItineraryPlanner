@@ -1,6 +1,7 @@
 <script lang="ts">
 	/**
-	 * Pop-up for one city: what to do there (Must / Maybe / Skip), why go, and how many nights.
+	 * Pop-up for one city: what to do there (Must / Maybe / Skip) and why go. Nights are set
+	 * afterwards, for all cities at once, on the Cities page.
 	 * A plain overlay rather than <dialog>: dragged items are appended to <body> and must render on top.
 	 */
 	import { enhance } from '$app/forms';
@@ -137,11 +138,6 @@
 						<input name="notes" value={city.notes ?? ''} placeholder="Onsen, the Hells" onchange={submitOnChange} />
 					</label>
 				</form>
-				<form method="POST" action="?/setCityNights" use:enhance={keep} class="nights">
-					<input type="hidden" name="cityId" value={city.id} />
-					<label>Nights <input type="number" name="nightsMin" min="0" max="60" value={city.nightsMin} onchange={submitOnChange} /></label>
-					<label>to <input type="number" name="nightsMax" min="0" max="60" placeholder="–" value={city.nightsMax ?? ''} onchange={submitOnChange} /></label>
-				</form>
 			</div>
 		{/if}
 
@@ -179,18 +175,28 @@
 		</form>
 
 		{#if bucketHere.length}
-			<div class="bucket-strip small">
-				<span class="muted">From your bucket list:</span>
-				{#each bucketHere as b (b.placeId)}
-					<form method="POST" action="?/addIdea" use:enhance>
-						<input type="hidden" name="cityId" value={city?.id ?? ''} />
-						<input type="hidden" name="placeName" value={b.name} />
-						<input type="hidden" name="details" value={bucketNote(b)} />
-						<input type="hidden" name="priority" value="maybe" />
-						<button class="sm chip-btn" title="{bucketOrigin(b)} · add as Maybe">+ {b.name}</button>
-					</form>
-				{/each}
-			</div>
+			<section class="bucket-box" aria-label="Saved in your bucket list">
+				<div class="small">
+					<strong>Saved in your bucket list</strong>
+					<span class="muted">· {bucketHere.length} for {title}. Add the ones you want as Maybe ideas.</span>
+				</div>
+				<div class="bucket-items">
+					{#each bucketHere as b (b.placeId)}
+						<form method="POST" action="?/addIdea" use:enhance class="bucket-item">
+							<input type="hidden" name="cityId" value={city?.id ?? ''} />
+							<input type="hidden" name="placeName" value={b.name} />
+							<input type="hidden" name="details" value={bucketNote(b)} />
+							<input type="hidden" name="priority" value="maybe" />
+							<div class="grow">
+								<strong>{b.name}</strong>
+								{#if bucketNote(b)}<div class="small">{bucketNote(b)}</div>{/if}
+								{#if b.sources.length}<div class="small muted">{bucketOrigin(b)}</div>{/if}
+							</div>
+							<button class="sm" title="Add {b.name} as a Maybe idea">+ Add</button>
+						</form>
+					{/each}
+				</div>
+			</section>
 		{/if}
 
 		<div class="cols">
@@ -400,13 +406,6 @@
 	.why {
 		flex: 1 1 280px;
 	}
-	.nights {
-		display: flex;
-		gap: 0.5rem;
-	}
-	.nights input {
-		width: 4.5rem;
-	}
 	.add {
 		display: grid;
 		grid-template-columns: minmax(200px, 1fr) auto auto;
@@ -439,15 +438,27 @@
 	.add .clash {
 		grid-column: 1 / -1;
 	}
-	.bucket-strip {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.35rem;
+	.bucket-box {
+		display: grid;
+		gap: 0.45rem;
+		padding: 0.6rem;
+		border: 1px dashed var(--focus);
+		border-radius: var(--radius);
+		background: var(--focus-soft);
 	}
-	.chip-btn {
-		border-style: dashed;
-		border-radius: 999px;
+	.bucket-items {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+		gap: 0.4rem;
+	}
+	.bucket-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.4rem 0.55rem;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 8px;
 	}
 	.modal button:disabled {
 		opacity: 0.45;

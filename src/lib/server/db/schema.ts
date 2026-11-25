@@ -115,6 +115,8 @@ export const tripCity = sqliteTable(
 		/** Nights wanted: "2" is min 2 / max null, "1–2" is min 1 / max 2. */
 		nightsMin: integer('nights_min').notNull().default(1),
 		nightsMax: integer('nights_max'),
+		/** Order on the Days tab (drag the city pills); null = not placed yet, listed last. */
+		dayOrder: integer('day_order'),
 		/** Why you want to go (or, for Skip, why not). */
 		notes: text('notes')
 	},
@@ -137,6 +139,19 @@ export const routeStop = sqliteTable('route_stop', {
 	operator: text('operator')
 });
 
+/**
+ * Phase 2: a day spent in a shortlisted city, before any dates exist. Ideas are dragged into
+ * these; the number of days becomes the city's nights.
+ */
+export const cityDay = sqliteTable('city_day', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	tripCityId: integer('trip_city_id')
+		.notNull()
+		.references(() => tripCity.id, { onDelete: 'cascade' }),
+	position: integer('position').notNull().default(0),
+	label: text('label')
+});
+
 export const idea = sqliteTable('idea', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	tripId: integer('trip_id')
@@ -146,6 +161,8 @@ export const idea = sqliteTable('idea', {
 	baseId: integer('base_id').references(() => routeStop.id, { onDelete: 'set null' }),
 	/** The shortlisted city this idea belongs to; null = unassigned. */
 	cityId: integer('city_id').references(() => tripCity.id, { onDelete: 'set null' }),
+	/** The day group within its city (Days tab); null = not scheduled yet. */
+	cityDayId: integer('city_day_id').references(() => cityDay.id, { onDelete: 'set null' }),
 	placeId: integer('place_id').references(() => place.id, { onDelete: 'set null' }),
 	position: integer('position').notNull().default(0),
 	title: text('title').notNull(),
@@ -153,6 +170,8 @@ export const idea = sqliteTable('idea', {
 	status: text('status').$type<IdeaStatus>().notNull().default('idea'),
 	/** Must / Maybe / Skip within its city. Skip counts as dropped in the export. */
 	priority: text('priority').$type<CityPriority>().notNull().default('maybe'),
+	/** Priority before its city was skipped; restored when the city comes back. */
+	priorityBeforeCitySkip: text('priority_before_city_skip').$type<CityPriority>(),
 	reason: text('reason')
 });
 
@@ -321,3 +340,4 @@ export type Booking = typeof booking.$inferSelect;
 export type JournalEntry = typeof journalEntry.$inferSelect;
 export type Attachment = typeof attachment.$inferSelect;
 export type BucketItem = typeof bucketItem.$inferSelect;
+export type CityDay = typeof cityDay.$inferSelect;

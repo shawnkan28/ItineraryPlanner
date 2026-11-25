@@ -134,7 +134,7 @@
 <main class="stack wide">
 	<div class="spread">
 		<div>
-			<h2>Phase 2 · Route options</h2>
+			<h2>Phase 3 · Route options</h2>
 			<p class="muted small">
 				Put your shortlisted cities in order. Drag cities from the left into a route, drag stops to
 				reorder them or move them to another route. The trip has <strong>{tripNights}</strong> nights.

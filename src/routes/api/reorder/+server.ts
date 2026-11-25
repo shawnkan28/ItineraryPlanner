@@ -2,7 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import { eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, t } from '#lib/server/db/index.ts';
-import { dateStops } from '#lib/server/repo.ts';
+import { cascadeCityPriority, dateStops } from '#lib/server/repo.ts';
 
 const body = z.discriminatedUnion('kind', [
 	z.object({
@@ -28,6 +28,19 @@ const body = z.discriminatedUnion('kind', [
 		)
 	}),
 	z.object({
+		kind: z.literal('cityDays'),
+		tripId: z.number().int(),
+		cityId: z.number().int(),
+		/** The city's unscheduled pool (dayId null) and its day groups. */
+		columns: z.array(z.object({ dayId: z.number().int().nullable(), ids: z.array(z.number().int()) }))
+	}),
+	z.object({
+		kind: z.literal('cityOrder'),
+		tripId: z.number().int(),
+		/** City ids in the order shown on the Days tab. */
+		ids: z.array(z.number().int())
+	}),
+	z.object({
 		kind: z.literal('cities'),
 		tripId: z.number().int(),
 		columns: z.array(z.object({ priority: z.enum(['must', 'maybe', 'skip']), ids: z.array(z.number().int()) }))
@@ -51,11 +64,56 @@ export const POST = async ({ request, locals }) => {
 			? db.select({ id: t.idea.id, tripId: t.idea.tripId }).from(t.idea).where(inArray(t.idea.id, ids)).all()
 			: [];
 		if (own.some((i) => i.tripId !== b.tripId) || own.length !== ids.length) error(403, 'Not your ideas');
+		const was = new Map(
+			(ids.length ? db.select({ id: t.idea.id, priority: t.idea.priority }).from(t.idea).where(inArray(t.idea.id, ids)).all() : []).map(
+				(i) => [i.id, i.priority]
+			)
+		);
+		db.transaction((tx) => {
+			// a priority you set by hand wins over the one remembered from a city skip
+			for (const col of b.columns)
+				col.ids.forEach((id) => {
+					if (was.get(id) !== col.priority)
+						tx.update(t.idea).set({ priorityBeforeCitySkip: null }).where(eq(t.idea.id, id)).run();
+				});
+			for (const col of b.columns)
+				col.ids.forEach((id, position) =>
+					tx
+						.update(t.idea)
+						// a skipped idea leaves its day (Days tab)
+						.set(col.priority === 'skip' ? { position, priority: col.priority, cityDayId: null } : { position, priority: col.priority })
+						.where(eq(t.idea.id, id))
+						.run()
+				);
+		});
+		return json({ ok: true });
+	}
+
+	if (b.kind === 'cityDays') {
+		const city = db.select().from(t.tripCity).where(eq(t.tripCity.id, b.cityId)).get();
+		if (!city || city.tripId !== b.tripId) error(403, 'Not your city');
+		const ids = b.columns.flatMap((c) => c.ids);
+		const ideas = ids.length ? db.select().from(t.idea).where(inArray(t.idea.id, ids)).all() : [];
+		if (ideas.length !== ids.length || ideas.some((i) => i.cityId !== city.id)) error(403, 'Not this city');
+		const dayIds = b.columns.flatMap((c) => (c.dayId === null ? [] : [c.dayId]));
+		const days = dayIds.length ? db.select().from(t.cityDay).where(inArray(t.cityDay.id, dayIds)).all() : [];
+		if (days.length !== new Set(dayIds).size || days.some((d) => d.tripCityId !== city.id)) error(403, 'Not this city');
 		db.transaction((tx) => {
 			for (const col of b.columns)
 				col.ids.forEach((id, position) =>
-					tx.update(t.idea).set({ position, priority: col.priority }).where(eq(t.idea.id, id)).run()
+					tx.update(t.idea).set({ position, cityDayId: col.dayId }).where(eq(t.idea.id, id)).run()
 				);
+		});
+		return json({ ok: true });
+	}
+
+	if (b.kind === 'cityOrder') {
+		const own = b.ids.length
+			? db.select({ id: t.tripCity.id, tripId: t.tripCity.tripId }).from(t.tripCity).where(inArray(t.tripCity.id, b.ids)).all()
+			: [];
+		if (own.length !== new Set(b.ids).size || own.some((c) => c.tripId !== b.tripId)) error(403, 'Not your cities');
+		db.transaction((tx) => {
+			b.ids.forEach((id, i) => tx.update(t.tripCity).set({ dayOrder: i }).where(eq(t.tripCity.id, id)).run());
 		});
 		return json({ ok: true });
 	}
@@ -66,11 +124,15 @@ export const POST = async ({ request, locals }) => {
 			? db.select({ id: t.tripCity.id, tripId: t.tripCity.tripId }).from(t.tripCity).where(inArray(t.tripCity.id, ids)).all()
 			: [];
 		if (own.length !== ids.length || own.some((c) => c.tripId !== b.tripId)) error(403, 'Not your cities');
+		const before = new Map(
+			(ids.length ? db.select().from(t.tripCity).where(inArray(t.tripCity.id, ids)).all() : []).map((c) => [c.id, c.priority])
+		);
 		db.transaction((tx) => {
 			for (const col of b.columns)
-				col.ids.forEach((id, position) =>
-					tx.update(t.tripCity).set({ position, priority: col.priority }).where(eq(t.tripCity.id, id)).run()
-				);
+				col.ids.forEach((id, position) => {
+					tx.update(t.tripCity).set({ position, priority: col.priority }).where(eq(t.tripCity.id, id)).run();
+					cascadeCityPriority(id, before.get(id)!, col.priority);
+				});
 		});
 		return json({ ok: true });
 	}

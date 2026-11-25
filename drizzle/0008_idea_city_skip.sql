@@ -1,0 +1,1 @@
+ALTER TABLE `idea` ADD `priority_before_city_skip` text;

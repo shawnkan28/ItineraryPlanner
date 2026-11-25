@@ -55,6 +55,37 @@ export function resolvePlace(
 	return db.insert(t.place).values({ name: clean, level }).returning({ id: t.place.id }).get().id;
 }
 
+/**
+ * Skipping a city skips its ideas too, remembering each one's priority; un-skipping the city
+ * restores them. Ideas you had skipped yourself stay skipped.
+ */
+export function cascadeCityPriority(tripCityId: number, from: string, to: string) {
+	if (from !== 'skip' && to === 'skip') {
+		db.update(t.idea)
+			.set({ priorityBeforeCitySkip: sql`${t.idea.priority}`, priority: 'skip' })
+			.where(and(eq(t.idea.cityId, tripCityId), sql`${t.idea.priority} != 'skip'`))
+			.run();
+	} else if (from === 'skip' && to !== 'skip') {
+		db.update(t.idea)
+			.set({ priority: sql`${t.idea.priorityBeforeCitySkip}`, priorityBeforeCitySkip: null })
+			.where(and(eq(t.idea.cityId, tripCityId), sql`${t.idea.priorityBeforeCitySkip} is not null`))
+			.run();
+	}
+}
+
+/**
+ * A city's nights follow the days planned for it on the Days tab (3 days there = 3 nights).
+ * With no days planned the nights are left alone.
+ */
+export function syncCityNights(tripCityId: number) {
+	const n = db
+		.select({ n: sql<number>`count(*)` })
+		.from(t.cityDay)
+		.where(eq(t.cityDay.tripCityId, tripCityId))
+		.get()!.n;
+	if (n > 0) db.update(t.tripCity).set({ nightsMin: n, nightsMax: null }).where(eq(t.tripCity.id, tripCityId)).run();
+}
+
 // ---------------------------------------------------------------------------------------------
 // Days
 // ---------------------------------------------------------------------------------------------

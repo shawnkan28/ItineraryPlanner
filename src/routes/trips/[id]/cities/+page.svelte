@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { daysBetween } from '#lib/dates.ts';
 	import { keep } from '#lib/forms.ts';
 	import { bucketNote, bucketOrigin } from '#lib/bucket-text.ts';
+	import { similarPlace } from '#lib/similar.ts';
 	import CitiesBoard from './CitiesBoard.svelte';
 	import CityIdeas from './CityIdeas.svelte';
 
 	let { data, form } = $props();
-	type City = (typeof data.cities)[number];
 
 	/** City whose ideas pop-up is open; 'none' = ideas without a city. */
 	let openCity: number | 'none' | null = $state(null);
@@ -18,14 +17,6 @@
 		if (typeof openCity === 'number' && !modalCity) openCity = null;
 	});
 
-	// Nights wanted per city, against the trip length.
-	const tripNights = $derived(daysBetween(data.trip.startDate, data.trip.endDate));
-	const sumMin = (list: City[]) => list.reduce((n, c) => n + c.nightsMin, 0);
-	const sumMax = (list: City[]) => list.reduce((n, c) => n + (c.nightsMax ?? c.nightsMin), 0);
-	const range = (list: City[]) => (sumMin(list) === sumMax(list) ? `${sumMin(list)}` : `${sumMin(list)}–${sumMax(list)}`);
-	const must = $derived(data.cities.filter((c) => c.priority === 'must'));
-	const maybe = $derived(data.cities.filter((c) => c.priority === 'maybe'));
-	const pct = (n: number) => Math.max(0, Math.min(100, (n / Math.max(tripNights, 1)) * 100));
 
 	// Open the bucket panel on a fresh trip; after that it stays however you leave it.
 	let bucketOpen = $state(false);
@@ -37,9 +28,21 @@
 		}
 	});
 	// Cities on the shared bucket list that aren't on this trip yet
-	const bucketCities = $derived(data.bucket.filter((e) => e.isCity && !data.cities.some((c) => c.placeId === e.placeId)));
+	// Only what you saved on the Bucket page is offered here.
+	const saved = $derived(data.bucket.filter((e) => e.saved));
+	const placeName = (id: number) => data.places.find((p) => p.id === id)?.name ?? '';
+	const bucketCities = $derived(
+		saved.filter((e) => e.isCity && !data.cities.some((c) => c.placeId === e.placeId || similarPlace(placeName(c.placeId), e.name)))
+	);
+	/** Saved places in the open city ("Osaka" on the bucket list matches the trip's "Osaka City"). */
 	const bucketHere = $derived(
-		modalCity ? data.bucket.filter((e) => !e.isCity && e.cityPlaceId === modalCity.placeId) : []
+		modalCity
+			? saved.filter(
+					(e) =>
+						!e.isCity &&
+						(e.cityPlaceId === modalCity.placeId || (e.cityName !== null && similarPlace(e.cityName, placeName(modalCity.placeId))))
+				)
+			: []
 	);
 
 	const open = $derived(data.decisions.filter((d) => d.status === 'open'));
@@ -57,32 +60,15 @@
 				many nights it needs. Drag a city between columns to change its priority.
 			</p>
 		</div>
-		<a class="next" href="/trips/{data.trip.id}/route">Next: build route →</a>
+		<a class="next" href="/trips/{data.trip.id}/city-days">Next: plan days →</a>
 	</div>
 	{#if form && 'error' in form && form.error}<p class="error">{form.error}</p>{/if}
-
-	{#if must.length || maybe.length}
-		<div class="card nights-summary small">
-			<div>
-				<strong>Nights wanted:</strong> Must {range(must)}{#if maybe.length} · Maybe {range(maybe)}{/if} · trip has {tripNights}
-			</div>
-			<div class="meter" title="Must (green) and Maybe (amber) nights against the trip length">
-				<div class="fill must" style="width:{pct(sumMin(must))}%"></div>
-				<div class="fill maybe" style="width:{Math.min(pct(sumMin(maybe)), 100 - pct(sumMin(must)))}%"></div>
-			</div>
-			{#if sumMin(must) > tripNights}
-				<div class="bad">Must cities alone need {sumMin(must) - tripNights} more nights than the trip has.</div>
-			{:else}
-				<div class="muted">Set nights inside each city once you know what you want to do there.</div>
-			{/if}
-		</div>
-	{/if}
 
 	{#if bucketCities.length}
 		<details class="card bucket" bind:open={bucketOpen}>
 			<summary>
 				<strong>From your bucket list</strong>
-				<span class="muted small">· {bucketCities.length} {bucketCities.length === 1 ? 'city' : 'cities'} saved, skipped or visited on other trips</span>
+				<span class="muted small">· {bucketCities.length} saved {bucketCities.length === 1 ? 'city' : 'cities'} not on this trip yet</span>
 			</summary>
 			<div class="bucket-list">
 				{#each bucketCities as e (e.placeId)}
@@ -107,6 +93,7 @@
 		cities={data.cities}
 		ideas={data.ideas}
 		places={data.places}
+		dayCounts={data.dayCounts}
 		onopen={(id) => (openCity = id)}
 		errors={form && 'cityErrors' in form ? (form.cityErrors as Record<string, string>) : null}
 	/>
@@ -204,28 +191,6 @@
 		text-decoration: none;
 		font-weight: 600;
 		white-space: nowrap;
-	}
-	.nights-summary {
-		display: grid;
-		gap: 0.35rem;
-	}
-	.meter {
-		display: flex;
-		height: 6px;
-		max-width: 420px;
-		border-radius: 3px;
-		background: var(--border);
-		overflow: hidden;
-	}
-	.fill.must {
-		background: var(--focus);
-	}
-	.fill.maybe {
-		background: var(--maybe);
-		opacity: 0.6;
-	}
-	.bad {
-		color: var(--accent);
 	}
 	.bucket summary {
 		cursor: pointer;

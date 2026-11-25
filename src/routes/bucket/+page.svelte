@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { keep } from '#lib/forms.ts';
 	import PlaceInput from '#lib/components/PlaceInput.svelte';
 	import type { BucketEntry } from '#lib/server/bucket.ts';
 
@@ -11,6 +10,13 @@
 	let search = $state('');
 	let showHidden = $state(false);
 	let addKind: 'city' | 'place' = $state('place');
+	/** Card being edited, and the kind chosen in its form. */
+	let editing: number | null = $state(null);
+	let editKind: 'city' | 'place' = $state('place');
+	function startEdit(e: BucketEntry) {
+		editing = editing === e.placeId ? null : e.placeId;
+		editKind = e.isCity ? 'city' : 'place';
+	}
 
 	const skipped = (e: BucketEntry) => e.sources.filter((s) => s.kind === 'skipped');
 	const been = (e: BucketEntry) => e.sources.filter((s) => s.kind === 'been');
@@ -44,9 +50,10 @@
 	<div>
 		<h2>Bucket list</h2>
 		<p class="muted small">
-			Shared by all your trips. Cities and ideas you skip on a trip land here, and so do places from
-			trips you've finished, in case you want to go back. Save anything else by hand. Add them to a trip
-			from its Cities tab.
+			Shared by all your trips. Cities and ideas you skip land here, and so do places from trips
+			you've finished. <strong>Save</strong> the ones you want to see again: saved cities are offered on
+			every trip's Cities tab, and saved places pop up when you add ideas for their city. Use Edit to set
+			which city a place is in.
 		</p>
 	</div>
 
@@ -129,17 +136,40 @@
 				</li>
 			{/each}
 		</ul>
-		<form method="POST" action="?/notes" use:enhance={keep}>
-			<input type="hidden" name="placeId" value={e.placeId} />
-			<input
-				name="notes"
-				class="note-input small"
-				value={e.notes ?? ''}
-				placeholder="Your note"
-				aria-label="Note for {e.name}"
-				onchange={(ev) => ev.currentTarget.form?.requestSubmit()}
-			/>
-		</form>
+		{#if !e.isCity}
+			<div class="small">
+				{#if e.cityName}In <strong>{e.cityName}</strong>{:else}<span class="warn">No city yet: Edit to set one, or it won't pop up on trips</span>{/if}
+			</div>
+		{/if}
+		{#if e.notes}<p class="small note">{e.notes}</p>{/if}
+		{#if !e.saved && !e.hidden}<p class="small muted hint">Save it to see it on your trips.</p>{/if}
+
+		{#if editing === e.placeId}
+			<form
+				method="POST"
+				action="?/update"
+				use:enhance={() => async ({ update, result }) => {
+					await update({ reset: false });
+					if (result.type === 'success') editing = null;
+				}}
+				class="stack edit"
+			>
+				<input type="hidden" name="placeId" value={e.placeId} />
+				<input type="hidden" name="kind" value={editKind} />
+				<div class="seg" role="radiogroup" aria-label="Kind">
+					<button type="button" role="radio" aria-checked={editKind === 'place'} class:on={editKind === 'place'} onclick={() => (editKind = 'place')}>Place to visit</button>
+					<button type="button" role="radio" aria-checked={editKind === 'city'} class:on={editKind === 'city'} onclick={() => (editKind = 'city')}>City</button>
+				</div>
+				{#if editKind === 'place'}
+					<label>In city <PlaceInput name="cityName" value={e.cityName ?? ''} places={data.places} levels={['city', 'area', 'region']} placeholder="Osaka City" /></label>
+				{/if}
+				<label>Note <textarea name="notes" rows="2" placeholder="Why go">{e.notes ?? ''}</textarea></label>
+				<div class="row">
+					<button class="sm primary">{e.saved ? 'Save changes' : 'Save to bucket list'}</button>
+					<button type="button" class="sm" onclick={() => (editing = null)}>Cancel</button>
+				</div>
+			</form>
+		{/if}
 		<form method="POST" use:enhance class="row actions">
 			<input type="hidden" name="placeId" value={e.placeId} />
 			{#if e.hidden}
@@ -150,6 +180,7 @@
 				{:else}
 					<button class="sm" formaction="?/save">☆ Save</button>
 				{/if}
+				<button type="button" class="sm" aria-expanded={editing === e.placeId} onclick={() => startEdit(e)}>{editing === e.placeId ? 'Close' : 'Edit'}</button>
 				<button class="sm ghost" formaction="?/hide" title="Not interested: hide it from the list">Hide</button>
 			{/if}
 		</form>
@@ -233,9 +264,19 @@
 		display: grid;
 		gap: 0.15rem;
 	}
-	.note-input {
-		width: 100%;
-		padding: 0.25rem 0.45rem;
+	.note {
+		margin: 0;
+		white-space: pre-wrap;
+	}
+	.hint {
+		margin: 0;
+	}
+	.warn {
+		color: var(--maybe);
+	}
+	.edit {
+		padding-top: 0.4rem;
+		border-top: 1px solid var(--border);
 	}
 	.actions {
 		margin-top: auto;
