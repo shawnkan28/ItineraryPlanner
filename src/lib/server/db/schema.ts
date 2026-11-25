@@ -290,6 +290,22 @@ export const exportRun = sqliteTable('export_run', {
 });
 
 
+/**
+ * Bucket list, shared by all trips. Skipped cities/ideas and places from past trips show up on it
+ * automatically; rows here are places saved by hand ('saved') or waved away ('hidden').
+ */
+export type BucketStatus = 'saved' | 'hidden';
+export const bucketItem = sqliteTable('bucket_item', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	placeId: integer('place_id')
+		.notNull()
+		.unique()
+		.references(() => place.id, { onDelete: 'cascade' }),
+	status: text('status').$type<BucketStatus>().notNull().default('saved'),
+	notes: text('notes'),
+	createdAt: text('created_at').notNull().default(sql`(datetime('now'))`)
+});
+
 export type Trip = typeof trip.$inferSelect;
 export type RouteOption = typeof routeOption.$inferSelect;
 export type RouteStop = typeof routeStop.$inferSelect;
@@ -304,3 +320,4 @@ export type PlanItem = typeof planItem.$inferSelect;
 export type Booking = typeof booking.$inferSelect;
 export type JournalEntry = typeof journalEntry.$inferSelect;
 export type Attachment = typeof attachment.$inferSelect;
+export type BucketItem = typeof bucketItem.$inferSelect;

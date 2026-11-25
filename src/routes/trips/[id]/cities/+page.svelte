@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { daysBetween } from '#lib/dates.ts';
 	import { keep } from '#lib/forms.ts';
+	import { bucketNote, bucketOrigin } from '#lib/bucket-text.ts';
 	import CitiesBoard from './CitiesBoard.svelte';
 	import CityIdeas from './CityIdeas.svelte';
 
@@ -26,6 +27,21 @@
 	const maybe = $derived(data.cities.filter((c) => c.priority === 'maybe'));
 	const pct = (n: number) => Math.max(0, Math.min(100, (n / Math.max(tripNights, 1)) * 100));
 
+	// Open the bucket panel on a fresh trip; after that it stays however you leave it.
+	let bucketOpen = $state(false);
+	let bucketTrip = -1;
+	$effect.pre(() => {
+		if (data.trip.id !== bucketTrip) {
+			bucketTrip = data.trip.id;
+			bucketOpen = data.cities.length === 0;
+		}
+	});
+	// Cities on the shared bucket list that aren't on this trip yet
+	const bucketCities = $derived(data.bucket.filter((e) => e.isCity && !data.cities.some((c) => c.placeId === e.placeId)));
+	const bucketHere = $derived(
+		modalCity ? data.bucket.filter((e) => !e.isCity && e.cityPlaceId === modalCity.placeId) : []
+	);
+
 	const open = $derived(data.decisions.filter((d) => d.status === 'open'));
 	const decided = $derived(data.decisions.filter((d) => d.status === 'decided'));
 </script>
@@ -43,7 +59,6 @@
 		</div>
 		<a class="next" href="/trips/{data.trip.id}/route">Next: build route →</a>
 	</div>
-	{#if form && 'planned' in form}<p class="badge green">{form.planned}</p>{/if}
 	{#if form && 'error' in form && form.error}<p class="error">{form.error}</p>{/if}
 
 	{#if must.length || maybe.length}
@@ -61,6 +76,30 @@
 				<div class="muted">Set nights inside each city once you know what you want to do there.</div>
 			{/if}
 		</div>
+	{/if}
+
+	{#if bucketCities.length}
+		<details class="card bucket" bind:open={bucketOpen}>
+			<summary>
+				<strong>From your bucket list</strong>
+				<span class="muted small">· {bucketCities.length} {bucketCities.length === 1 ? 'city' : 'cities'} saved, skipped or visited on other trips</span>
+			</summary>
+			<div class="bucket-list">
+				{#each bucketCities as e (e.placeId)}
+					<form method="POST" action="?/addCity" use:enhance class="bucket-city">
+						<input type="hidden" name="placeName" value={e.name} />
+						<input type="hidden" name="priority" value="maybe" />
+						<input type="hidden" name="notes" value={bucketNote(e)} />
+						<div class="grow">
+							<strong>{e.name}</strong>
+							<div class="muted small">{bucketOrigin(e)}</div>
+						</div>
+						<button class="sm" title="Add {e.name} to this trip as a Maybe city">+ Add</button>
+					</form>
+				{/each}
+			</div>
+			<a class="small" href="/bucket">Open bucket list →</a>
+		</details>
 	{/if}
 
 	<CitiesBoard
@@ -112,8 +151,8 @@
 		cities={data.cities}
 		ideas={data.ideas}
 		places={data.places}
-		days={data.days}
 		error={form && 'error' in form ? (form.error as string) : null}
+		bucket={bucketHere}
 		onclose={() => (openCity = null)}
 	/>
 {/if}
@@ -187,6 +226,23 @@
 	}
 	.bad {
 		color: var(--accent);
+	}
+	.bucket summary {
+		cursor: pointer;
+	}
+	.bucket-list {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+		gap: 0.5rem;
+		margin: 0.6rem 0;
+	}
+	.bucket-city {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.45rem 0.6rem;
+		border: 1px dashed var(--border);
+		border-radius: 8px;
 	}
 	.decisions {
 		max-width: 720px;

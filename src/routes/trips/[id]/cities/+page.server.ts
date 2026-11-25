@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { db, t } from '#lib/server/db/index.ts';
 import { resolvePlace, tripId } from '#lib/server/repo.ts';
+import { bucketEntries } from '#lib/server/bucket.ts';
 import { similarPlace } from '#lib/similar.ts';
 import { cityNightsSchema, cityNotesSchema, decisionSchema, ideaSchema, parseForm, tripCitySchema } from '#lib/schemas.ts';
 
@@ -20,7 +21,8 @@ export const load = ({ params }) => {
 		.orderBy(asc(t.idea.position), asc(t.idea.id))
 		.all();
 	const decisions = db.select().from(t.decision).where(eq(t.decision.tripId, id)).orderBy(asc(t.decision.id)).all();
-	return { cities, ideas, decisions };
+	// the shared bucket list, minus what only comes from this trip
+	return { cities, ideas, decisions, bucket: bucketEntries({ exceptTrip: id }) };
 };
 
 const ownCity = (tripId: number, cityId: number) =>
@@ -142,49 +144,6 @@ export const actions = {
 		const idea = ownIdea(tripId(params), num(f, 'ideaId'));
 		if (!idea) return fail(404);
 		db.delete(t.idea).where(eq(t.idea.id, idea.id)).run();
-	},
-	/** Put an idea on a day's timeline (Phase 3) and mark it planned. */
-	planIdea: async ({ params, request, locals }) => {
-		const id = tripId(params);
-		const f = await request.formData();
-		const idea = ownIdea(id, num(f, 'ideaId'));
-		const day = db
-			.select()
-			.from(t.day)
-			.where(and(eq(t.day.id, num(f, 'dayId')), eq(t.day.tripId, id)))
-			.get();
-		if (!idea || !day) return fail(400, { error: 'Pick a day' });
-		const kind = String(f.get('kind') || 'focus') as 'focus' | 'maybe' | 'optional';
-		let section = db
-			.select()
-			.from(t.planSection)
-			.where(and(eq(t.planSection.dayId, day.id), eq(t.planSection.kind, kind)))
-			.get();
-		if (!section) {
-			section = db
-				.insert(t.planSection)
-				.values({ dayId: day.id, kind, collapsed: kind === 'optional', position: 0 })
-				.returning()
-				.get();
-		}
-		const max = db
-			.select({ n: sql<number>`coalesce(max(position), -1)` })
-			.from(t.planItem)
-			.where(eq(t.planItem.sectionId, section.id))
-			.get()!.n;
-		db.insert(t.planItem)
-			.values({
-				sectionId: section.id,
-				position: max + 1,
-				title: idea.title,
-				placeId: idea.placeId,
-				details: idea.details ? idea.details.split(/\r?\n/).filter((l) => l.trim()) : [],
-				createdBy: locals.userId,
-				updatedBy: locals.userId
-			})
-			.run();
-		db.update(t.idea).set({ status: 'planned' }).where(eq(t.idea.id, idea.id)).run();
-		return { planned: `${idea.title} → Day ${day.dayNumber}` };
 	},
 
 	// --- Decisions ---------------------------------------------------------------------------

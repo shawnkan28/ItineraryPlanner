@@ -14,6 +14,7 @@
 		{#if data.loggedIn}
 			<nav>
 				<a href="/" class:active={page.url.pathname === '/' || page.url.pathname.startsWith('/trips')}>Trips</a>
+				<a href="/bucket" class:active={page.url.pathname.startsWith('/bucket')}>Bucket list</a>
 				<a href="/places" class:active={page.url.pathname.startsWith('/places')}>Places</a>
 				<a href="/settings" class:active={page.url.pathname.startsWith('/settings')}>Settings</a>
 				{#if data.authEnabled}

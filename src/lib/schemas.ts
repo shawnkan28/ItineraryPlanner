@@ -101,6 +101,14 @@ export const tripCitySchema = z.object({
 	notes: opt
 });
 
+/** Adding to the shared bucket list by hand: a city, or a place (optionally in a city). */
+export const bucketSchema = z.object({
+	placeName: req,
+	kind: z.enum(['city', 'place']).default('place'),
+	cityName: opt,
+	notes: opt
+});
+
 /** An idea is a place (required) plus notes; its title is the place name. */
 export const ideaSchema = z.object({
 	cityId: optInt,

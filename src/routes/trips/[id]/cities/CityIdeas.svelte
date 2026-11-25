@@ -7,22 +7,22 @@
 	import { invalidateAll } from '$app/navigation';
 	import { dndzone, type DndEvent } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
-	import { niceDate } from '#lib/dates.ts';
 	import { keep } from '#lib/forms.ts';
 	import PlaceInput from '#lib/components/PlaceInput.svelte';
 	import { similarPlace } from '#lib/similar.ts';
+	import { bucketNote, bucketOrigin } from '#lib/bucket-text.ts';
+	import type { BucketEntry } from '#lib/server/bucket.ts';
 	import type { CityPriority, Idea, TripCity } from '#lib/server/db/schema.ts';
 
 	type P = { id: number; name: string; level: string; aliases: string[] };
-	type Day = { id: number; dayNumber: number; date: string };
 	let {
 		tripId,
 		city,
 		cities,
 		ideas,
 		places,
-		days,
 		error = null,
+		bucket = [],
 		onclose
 	}: {
 		tripId: number;
@@ -30,9 +30,10 @@
 		cities: TripCity[];
 		ideas: Idea[];
 		places: P[];
-		days: Day[];
 		/** Server-side refusal (e.g. the place is already in this city). */
 		error?: string | null;
+		/** Places in this city from the shared bucket list (other trips, saved by hand). */
+		bucket?: BucketEntry[];
 		onclose: () => void;
 	} = $props();
 
@@ -68,6 +69,7 @@
 	const editOthers = $derived(editMatches.filter((i) => !inCity(i, editCity)));
 	/** Ideas that look like another idea on the trip get a yellow highlight. */
 	const dupesOf = (i: Idea) => similarTo(ideaName(i), i.id);
+	const bucketHere = $derived(bucket.filter((b) => !mine.some((i) => similarPlace(b.name, ideaName(i)))));
 	const typed = (e: Event) => (e.target as HTMLInputElement).value;
 	const title = $derived(city ? placeName(city.placeId) : 'Ideas without a city');
 	const mine = $derived(ideas.filter((i) => (city ? i.cityId === city.id : i.cityId === null)));
@@ -176,6 +178,21 @@
 			<button class="primary" disabled={!!addClash}>Add</button>
 		</form>
 
+		{#if bucketHere.length}
+			<div class="bucket-strip small">
+				<span class="muted">From your bucket list:</span>
+				{#each bucketHere as b (b.placeId)}
+					<form method="POST" action="?/addIdea" use:enhance>
+						<input type="hidden" name="cityId" value={city?.id ?? ''} />
+						<input type="hidden" name="placeName" value={b.name} />
+						<input type="hidden" name="details" value={bucketNote(b)} />
+						<input type="hidden" name="priority" value="maybe" />
+						<button class="sm chip-btn" title="{bucketOrigin(b)} · add as Maybe">+ {b.name}</button>
+					</form>
+				{/each}
+			</div>
+		{/if}
+
 		<div class="cols">
 			{#each columns as col, ci (col.priority)}
 				{@const meta = PRIORITIES[ci]}
@@ -259,15 +276,6 @@
 											<button class="sm danger ghost" formaction="?/deleteIdea">Delete</button>
 										</div>
 									</form>
-									{#if days.length}
-										<form method="POST" action="?/planIdea" use:enhance class="row plan">
-											<input type="hidden" name="ideaId" value={idea.id} />
-											<select name="dayId" class="grow" aria-label="Day">
-												{#each days as d (d.id)}<option value={d.id}>Day {d.dayNumber} · {niceDate(d.date)}</option>{/each}
-											</select>
-											<button class="sm">Add to day</button>
-										</form>
-									{/if}
 								{/if}
 							</article>
 						{/each}
@@ -431,6 +439,16 @@
 	.add .clash {
 		grid-column: 1 / -1;
 	}
+	.bucket-strip {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.35rem;
+	}
+	.chip-btn {
+		border-style: dashed;
+		border-radius: 999px;
+	}
 	.modal button:disabled {
 		opacity: 0.45;
 		cursor: not-allowed;
@@ -552,9 +570,6 @@
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: 0.4rem;
-	}
-	.plan {
-		margin-top: 0.4rem;
 	}
 	.col {
 		position: relative;
